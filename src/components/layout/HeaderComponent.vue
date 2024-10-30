@@ -8,7 +8,7 @@ export default class HeaderComponent extends Vue {
 	windowWidth: number = 0
 	windowWidthFlag: boolean = true
 
-	lang: string = "ru"
+	lang: string = "ua"
 
 	menuNav() {
 		this.menuIsActive = !this.menuIsActive
@@ -116,8 +116,8 @@ export default class HeaderComponent extends Vue {
 						}}</router-link></el-menu-item
 					>
 				</el-menu>
-				<el-radio-group :change="switchLang()" v-model="lang" size="mini">
-					<el-radio-button label="ru">Ru</el-radio-button>
+				<el-radio-group @change="switchLang" v-model="lang" size="mini">
+					<!--el-radio-button label="ru">Ru</el-radio-button -->
 					<el-radio-button label="ua">Ua</el-radio-button>
 					<el-radio-button label="en">En</el-radio-button>
 				</el-radio-group>
