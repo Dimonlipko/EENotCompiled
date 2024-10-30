@@ -2,93 +2,44 @@ module.exports = {
   root: true,
   env: {
     node: true,
+    browser: true,
+    es6: true,
   },
+  parser: 'vue-eslint-parser',
+  parserOptions: {
+    parser: '@typescript-eslint/parser',
+    ecmaVersion: 2020,
+    sourceType: 'module',
+    ecmaFeatures: {
+      jsx: true,
+    },
+  },
+  extends: [
+    'plugin:vue/recommended', // налаштування для Vue
+    'plugin:@typescript-eslint/recommended', // правила для TypeScript
+    'prettier', // інтеграція з Prettier
+  ],
+  plugins: [
+    'vue',
+    '@typescript-eslint',
+    'prettier',
+    'import', // Доданий плагін import для підтримки правила import/order
+  ],
   rules: {
     curly: ['error', 'all'],
     'require-await': 'error',
     'no-console': 'error',
     'no-debugger': 'error',
     'prettier/prettier': 'error',
-    'unused-imports/no-unused-imports': 2,
     'vue/no-v-html': 'off',
-    'vue/valid-define-props': 'error',
-    'vue/valid-define-emits': 'error',
-    'vue/no-export-in-script-setup': 'error',
-    'vue/script-setup-uses-vars': 'warn',
-    'vue/valid-v-memo': 'error',
     'vue/require-default-prop': 'off',
-    'vue/block-lang': [
-      'error',
-      {
-        script: {
-          lang: 'ts',
-        },
-      },
-    ],
-    'vue/block-tag-newline': 'error',
-    'vue/custom-event-name-casing': ['error', 'kebab-case'],
-    'vue/no-empty-component-block': 'error',
-    'vue/no-static-inline-styles': [
-      'error',
-      {
-        allowBinding: true,
-      },
-    ],
-    'vue/no-bare-strings-in-template': [
-      'error',
-      {
-        allowlist: [
-          '(',
-          ')',
-          ',',
-          '.',
-          '&',
-          '+',
-          '-',
-          '=',
-          '*',
-          '/',
-          '#',
-          '%',
-          '!',
-          '?',
-          ':',
-          '[',
-          ']',
-          '{',
-          '}',
-          '<',
-          '>',
-          '@',
-          'Qliq ID',
-          'Android',
-          'Windows',
-          'Mac',
-          'WCTP',
-          'API',
-          'URL',
-          'Webhook',
-          'Quincy',
-          'IP',
-          '•',
-          'EMR',
-          'Azure',
-          'Docusign',
-          '|',
-        ],
-        attributes: {
-          '/.+/': [
-            'title',
-            'aria-label',
-            'aria-placeholder',
-            'aria-roledescription',
-            'aria-valuetext',
-          ],
-          input: ['placeholder'],
-        },
-        directives: ['v-text'],
-      },
-    ],
+
+    // Ігнорування попереджень, якщо типи повернення не потрібні
+    '@typescript-eslint/explicit-function-return-type': 'off',
+
+    // Ігнорування попереджень про невикористані змінні
+    '@typescript-eslint/no-unused-vars': 'warn',
+
     'sort-imports': [
       'warn',
       {
@@ -97,7 +48,7 @@ module.exports = {
       },
     ],
     'import/order': [
-      1,
+      'warn',
       {
         'newlines-between': 'always',
         groups: [
@@ -116,7 +67,6 @@ module.exports = {
           caseInsensitive: false,
         },
         pathGroups: [
-          // if library starts from @ add in rules with external group
           {
             pattern: '@twilio/**',
             group: 'external',

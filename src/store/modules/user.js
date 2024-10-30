@@ -1,10 +1,11 @@
-import { auth } from '@/firebaseConfig.js'
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth'
+
+import { auth } from '@/firebaseConfig.js'
 
 const state = () => ({
   user: {
@@ -44,7 +45,7 @@ const actions = {
     context.commit('SET_USER', null)
   },
 
-  async fetchUser(context, user) {
+  fetchUser(context, user) {
     context.commit('SET_LOGGED_IN', user !== null)
     if (user) {
       context.commit('SET_USER', {

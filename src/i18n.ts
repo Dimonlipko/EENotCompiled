@@ -20,8 +20,11 @@ function loadLocaleMessages(): LocaleMessages {
   return messages;
 }
 
+// Завантаження мови з localStorage або встановлення за замовчуванням
+const savedLanguage = localStorage.getItem("preferredLanguage") || "ua";
+
 export default new VueI18n({
-  locale: process.env.VUE_APP_I18N_LOCALE || "en",
-  fallbackLocale: process.env.VUE_APP_I18N_FALLBACK_LOCALE || "en",
+  locale: savedLanguage, // Використовуємо збережену мову або "ua" за замовчуванням
+  fallbackLocale: "en", // Резервна мова
   messages: loadLocaleMessages()
 });

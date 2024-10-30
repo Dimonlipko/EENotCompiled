@@ -1,45 +1,45 @@
 <template>
-  <div class="home">
-    <div class="elfsight-app-0b842362-4c2a-4913-aae5-b20594c8c9ae"></div>
+  <div class="blog">
+    <div class="elfsight-app-0b842362-4c2a-4913-aae5-b20594c8c9ae" />
   </div>
 </template>
 
 <script>
 export default {
-  name: "Home",
+  name: 'Blog',
   data() {
     return {
-      sessionData: "",
+      sessionData: '',
     }
   },
   mounted() {
     // Завантажити дані з sessionStorage при завантаженні компонента
-    this.sessionData = sessionStorage.getItem("originalUrl") || ""
+    this.sessionData = sessionStorage.getItem('originalUrl') || ''
 
     // Якщо дані є, виконати перенаправлення
     if (this.sessionData) {
       this.$nextTick(() => {
-        sessionStorage.removeItem("originalUrl")
+        sessionStorage.removeItem('originalUrl')
         this.$router.push(this.sessionData)
       })
     }
 
     // Додати прослуховувач подій для відслідковування змін sessionStorage
-    window.addEventListener("storage", this.handleStorageChange)
+    window.addEventListener('storage', this.handleStorageChange)
 
-    const fbScript = document.createElement("script")
-    fbScript.setAttribute("src", "https://apps.elfsight.com/p/platform.js")
-    fbScript.setAttribute("defer", "")
+    const fbScript = document.createElement('script')
+    fbScript.setAttribute('src', 'https://apps.elfsight.com/p/platform.js')
+    fbScript.setAttribute('defer', '')
     document.head.appendChild(fbScript)
   },
   beforeDestroy() {
     // Очистити прослуховувач подій при знищенні компонента
-    window.removeEventListener("storage", this.handleStorageChange)
+    window.removeEventListener('storage', this.handleStorageChange)
   },
   methods: {
     // Метод, який викликається при зміні sessionStorage
     handleStorageChange(event) {
-      if (event.key === "originalUrl") {
+      if (event.key === 'originalUrl') {
         this.sessionData = event.newValue
         if (this.sessionData) {
           sessionStorage.clear()

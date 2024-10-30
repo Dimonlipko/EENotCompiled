@@ -1,6 +1,6 @@
 {
 	"menu": {
-		"home": "Home",
+		"blog": "Blog",
 		"batteries": "Battery",
 		"service": "Service",
 		"contact": "Contact",
@@ -101,7 +101,10 @@
 		"succesfullOrder": "Thank you for your order! Expect to be contacted.",
 		"succesfullContactTitle": "The order has been successfully sent!",
 		"succesfullContact": "Form sent successfully!",
+		"succesfullAddedToCart": "Success!",
 		"errorTitle": "Error",
-		"error": "Something went wrong. Please try again."
+		"error": "Something went wrong. Please try again.",
+		"addedToCart": "{title} add to cart!",
+		"fillAllFields": "Fill all fields, Please!"
 	}
 }
