@@ -85,6 +85,19 @@ const actions = {
     }
   },
 
+  removeProductFromCart({ commit, state }, productId) {
+    const cartItemIndex = state.items.findIndex(item => item.id === productId)
+    if (cartItemIndex !== -1) {
+      commit('removeProduct', cartItemIndex)
+      // Повертаємо товар на склад, якщо потрібно
+      commit(
+        'products/incrementProductInventory',
+        { id: productId },
+        { root: true }
+      )
+    }
+  },
+
   notifySuccess(_, message) {
     // Access the Vue instance for notifications
     this._vm.$notify({
@@ -108,6 +121,10 @@ const mutations = {
 
   clearCart(state) {
     state.items = []
+  },
+
+  removeProduct(state, index) {
+    state.items.splice(index, 1)
   },
 
   incrementItemQuantity(state, { id }) {

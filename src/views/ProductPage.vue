@@ -80,7 +80,7 @@
 
 				<div class="description">
 					<el-divider content-position="left">{{ $t("shop.product.description") }}</el-divider>
-					<p>{{ $t("shop.product.description-text." + product.id) }}</p>
+					<p v-html="$t('shop.product.description-text.' + product.id)"></p>
 				</div>
 			</el-col>
 		</el-row>
@@ -101,6 +101,8 @@ const Cart = namespace("cart")
 		ShoppingCart,
 	},
 })
+
+
 export default class ProductPage extends Vue {
 	@Products.Getter getById: any
 	@Products.Getter getShopSize: any

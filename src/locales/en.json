@@ -70,7 +70,7 @@
 			"description": "Description",
 			"addToCart": "Add to cart",
 			"description-text": {
-				"1": "ECU for converting a vehicle into an electric vehicle. \n Functions: \n- Controlling the motor and Leaf inverter via CAN bus \n- Controlling power contactors \n- Controlling the charger and DC-DC converter from Leaf \n- Working with Chevrolet BMS Volt GEN1, GEN2. Measuring cell voltages, battery temperature, cell balancing. \n- Controlling fast charging through the Shademo port. \n- Working with the current sensor Leaf or Volt \n- Information output on Android and Windows devices \n- Information output on the dashboard \n- Setting parameters",
+				"1": "ECU for converting a vehicle into an electric vehicle. \n Functions: \n- Controlling the motor and Leaf inverter via CAN bus \n- Controlling power contactors \n- Controlling the charger and DC-DC converter from Leaf \n- Working with Chevrolet BMS Volt GEN1, GEN2. Measuring cell voltages, battery temperature, cell balancing. \n- Controlling fast charging through the Chademo port. \n- Working with the current sensor Leaf or Volt \n- Information output on Android and Windows devices \n- Information output on the dashboard \n- Setting parameters \n \n  <a href='https://github.com/Dimonlipko/Leaf-ECU-Configurator' target='_blank'>Manual & Software</a>",
 				"2": "",
 				"3": "",
 				"4": "",
