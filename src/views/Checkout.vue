@@ -126,11 +126,11 @@ export default {
       ) {
         this.$notify.error({
           title: this.$t('notifications.errorTitle'),
-          message: this.$t('notifications.fillAllFields'), // Додайте цей ключ до локалізації
+          message: this.$t('notifications.fillAllFields'),
           offset: 150,
           duration: 4500,
         })
-        return // Не відправляйте форму, якщо є незаповнені поля
+        return
       }
 
       this.processing = true
@@ -148,11 +148,24 @@ export default {
         })),
       }
 
-      axios
-        .post('https://proxy1228x-1cd9682d219d.herokuapp.com/proxy', orderData)
+      // --- ЗМІНИ ПОЧИНАЮТЬСЯ ТУТ ---
+      // Використовуємо вашу адресу Google Apps Script
+      const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec';
+
+      axios.post(
+          GOOGLE_SCRIPT_URL,
+          JSON.stringify(orderData), // Ручне перетворення в рядок
+          {
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8', // Заголовок для обходу CORS Preflight
+            },
+          }
+        )
         .then((response) => {
           this.processing = false
-          if (response.data.status === 'success') {
+          
+          // Перевіряємо структуру відповіді від Google Script
+          if (response.data && response.data.status === 'success') {
             this.$notify({
               title: this.$t('notifications.succesfullOrderTitle'),
               message: this.$t('notifications.succesfullOrder'),
@@ -163,10 +176,11 @@ export default {
             this.$store.dispatch('cart/clearCart')
             this.$router.push('/shop')
           } else {
+            // Якщо скрипт повернув помилку
             this.$notify.error({
               title: this.$t('notifications.errorTitle'),
               message:
-                response.data.message ||
+                (response.data && response.data.message) ||
                 'An error occurred while processing your order.',
               offset: 100,
               duration: 4500,
@@ -174,6 +188,7 @@ export default {
           }
         })
         .catch((error) => {
+          console.error('Submission error:', error)
           this.processing = false
           this.$notify.error({
             title: this.$t('notifications.errorTitle'),
@@ -182,6 +197,7 @@ export default {
             duration: 4500,
           })
         })
+      // --- КІНЕЦЬ ЗМІН ---
     },
   },
 }
