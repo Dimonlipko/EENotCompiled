@@ -8,11 +8,13 @@
               Welcome, {{ user.data.displayName || user.data.email }}
             </div>
             <div class="card-body">
-              <div class="alert alert-success"
-role="alert">
+              <div
+class="alert alert-success" role="alert"
+>
                 You are logged in!
                 <div class="my-4">
-                  <button class="btn btn-primary" @click.prevent="signOut">
+                  <button class="btn btn-primary"
+@click.prevent="signOut">
                     Log Out
                   </button>
                 </div>

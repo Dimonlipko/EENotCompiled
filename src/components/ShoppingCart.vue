@@ -1,8 +1,9 @@
 <template>
   <el-row>
     <el-col>
-      <el-popover placement="top"
-trigger="click">
+      <el-popover
+placement="top" trigger="click"
+>
         <el-row>
           <el-col>
             <div class="cart">
@@ -11,8 +12,9 @@ trigger="click">
                 <i>{{ $t('shop.cart.failText') }}</i>
               </p>
               <ul>
-                <li v-for="product in products"
-:key="product.id">
+                <li
+v-for="product in products" :key="product.id"
+>
                   <div class="img-wrapper">
                     <img
                       :src="require(`@/assets/img/${product.images[0]}`)"

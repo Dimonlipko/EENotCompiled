@@ -13,6 +13,7 @@ module.exports = {
     public: 'electricengines.com.ua', // That solved it
   },
   parallel: false,
+  lintOnSave: false,
   configureWebpack: {
     devtool: 'source-map',
   },

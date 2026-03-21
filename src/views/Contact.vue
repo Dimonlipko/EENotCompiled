@@ -1,9 +1,13 @@
 <template>
   <div class="contact">
-    <el-row type="flex"
-class="row-bg" justify="center">
-      <el-col :xs="{ span: 24 }"
-:sm="{ span: 12 }" :lg="{ span: 8 }">
+    <el-row
+type="flex" class="row-bg"
+justify="center"
+>
+      <el-col
+:xs="{ span: 24 }" :sm="{ span: 12 }"
+:lg="{ span: 8 }"
+>
         <div class="google-map">
           <iframe
             frameborder="0"
@@ -13,8 +17,10 @@ class="row-bg" justify="center">
           />
         </div>
       </el-col>
-      <el-col :xs="{ span: 24 }"
-:sm="{ span: 12 }" :lg="{ span: 8 }">
+      <el-col
+:xs="{ span: 24 }" :sm="{ span: 12 }"
+:lg="{ span: 8 }"
+>
         <h2>{{ $t('contact.h1') }}</h2>
         <div class="icon-message-block">
           <i class="el-icon-message" />
@@ -27,7 +33,16 @@ class="row-bg" justify="center">
             <p>Email: electricenginescar@gmail.com</p>
           </div>
         </div>
-        <el-form ref="form" method="POST" :model="form">
+        <el-form ref="form"
+method="POST" :model="form">
+          <el-form-item class="antispam-field">
+            <el-input
+              v-model="form.website"
+              name="website"
+              autocomplete="off"
+              tabindex="-1"
+            />
+          </el-form-item>
           <el-form-item>
             <el-input
               v-model="form.name"
@@ -69,7 +84,8 @@ type="primary" @click="submitForm()">
             </el-button>
           </el-form-item>
         </el-form>
-        <div v-if="processing" class="processing-message">
+        <div v-if="processing"
+class="processing-message">
           <div
             v-loading="processing"
             element-loading-text="Loading..."
@@ -92,30 +108,68 @@ export default {
         phone: '',
         email: '',
         message: '',
+        website: '',
       },
       processing: false,
+      startTime: 0,
     }
   },
+  mounted() {
+    this.startTime = Date.now()
+  },
   methods: {
-    submitForm() {
-      // show processing text here
-      const _this = this
-      _this.processing = true
-      /* setTimeout(() => {
-				// send request
-			
-			}, 1000) */
+    async submitForm() {
+      if (
+        !this.form.name ||
+        !this.form.phone ||
+        !this.form.email ||
+        !this.form.message
+      ) {
+        this.$notify.error({
+          title: this.$t('notifications.errorTitle'),
+          message: this.$t('notifications.fillAllFields'),
+          offset: 100,
+          duration: 4500,
+        })
+        return
+      }
+
+      this.processing = true
+
+      let clientIp = 'Unknown'
+      try {
+        const ipResponse = await axios.get('https://api.ipify.org?format=json')
+        if (ipResponse.data && ipResponse.data.ip) {
+          clientIp = ipResponse.data.ip
+        }
+      } catch (e) {
+        console.warn('Failed to get IP address')
+      }
+
+      const contactData = {
+        type: 'contact',
+        name: this.form.name,
+        phone: this.form.phone,
+        email: this.form.email,
+        message: this.form.message,
+        ip: clientIp,
+        honeypot: this.form.website,
+        timeTaken: Date.now() - this.startTime,
+      }
+
+      const GOOGLE_SCRIPT_URL =
+        'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec'
+
       axios
-        .post('https://serve-node-ee.herokuapp.com/contact', {
-          name: this.form.name,
-          phone: this.form.phone,
-          email: this.form.email,
-          message: this.form.message,
+        .post(GOOGLE_SCRIPT_URL, JSON.stringify(contactData), {
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
         })
         .then(response => {
-          const result = response.data.result
+          this.processing = false
 
-          if (result) {
+          if (response.data && response.data.status === 'success') {
             this.$notify({
               title: this.$t('notifications.succesfullContactTitle'),
               message: this.$t('notifications.succesfullContact'),
@@ -123,10 +177,21 @@ export default {
               offset: 100,
               duration: 4500,
             })
+            this.form.name = ''
+            this.form.phone = ''
+            this.form.email = ''
+            this.form.message = ''
+          } else {
+            this.$notify.error({
+              title: this.$t('notifications.errorTitle'),
+              message: this.$t('notifications.error'),
+              offset: 100,
+              duration: 4500,
+            })
           }
-          _this.processing = false
         })
-        .catch(error => {
+        .catch(() => {
+          this.processing = false
           this.$notify.error({
             title: this.$t('notifications.errorTitle'),
             message: this.$t('notifications.error'),
@@ -211,5 +276,14 @@ h2 {
       margin: 0;
     }
   }
+}
+.antispam-field {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  z-index: -1;
+  height: 0;
+  width: 0;
+  overflow: hidden;
 }
 </style>

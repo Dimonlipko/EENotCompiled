@@ -14,19 +14,23 @@ export default class HeaderComponent extends Vue {
 
 <template>
   <el-footer height="auto">
-    <el-row type="flex"
-justify="center" align="middle">
+    <el-row
+type="flex" justify="center"
+align="middle"
+>
       <el-col :span="12">
         © Copyright {{ year }} ElectricEngines - All Rights Reserved
       </el-col>
       <el-col :span="6">
         <a href="https://www.facebook.com/ElectricEnginesCar">
-          <font-awesome-icon :icon="['fab', 'facebook']"
-size="3x" />
+          <font-awesome-icon
+:icon="['fab', 'facebook']" size="3x"
+/>
         </a>
         <a href="https://www.instagram.com/electric_engines">
-          <font-awesome-icon :icon="['fab', 'instagram']"
-size="3x" />
+          <font-awesome-icon
+:icon="['fab', 'instagram']" size="3x"
+/>
         </a>
       </el-col>
     </el-row>

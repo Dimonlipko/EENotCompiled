@@ -1,0 +1,164 @@
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    // --- ЛОГУВАННЯ ВХІДНОГО ЗАПИТУ ---
+    // Ми пишемо "сирі" дані в лог, щоб бачити, що реально приходить
+    var rawData = e.postData ? e.postData.contents : "No postData";
+    writeLog("INFO", "Вхідний запит: " + rawData);
+    // ---------------------------------
+
+    if (!e.postData || !e.postData.contents) throw new Error("No data received");
+
+    const data = JSON.parse(e.postData.contents);
+
+    // --- 🛡️ АНТИ-СПАМ (Honeypot & Time) ---
+    if (data.honeypot && data.honeypot.length > 0) {
+      writeLog("WARN", "SPAM DETECTED: Honeypot filled. IP: " + (data.ip || "Unknown"));
+      return successStub();
+    }
+    
+    // Перевірка часу (якщо прийшло timeTaken)
+    if (data.timeTaken && data.timeTaken < 2000) {
+      writeLog("WARN", "SPAM DETECTED: Too fast (" + data.timeTaken + "ms). IP: " + (data.ip || "Unknown"));
+      return successStub();
+    }
+
+    // --- 🛡️ КЕШУВАННЯ (Дублікати) ---
+    // Якщо IP немає, використовуємо тільки телефон як ідентифікатор
+    const ipLabel = data.ip && data.ip !== 'Unknown' ? data.ip : "NoIP";
+    const userIdentifier = (data.phone || "NoPhone") + "_" + ipLabel;
+    
+    const cache = CacheService.getScriptCache();
+    const isDuplicate = cache.get(userIdentifier);
+    
+    if (isDuplicate) {
+      writeLog("WARN", "DUPLICATE BLOCKED: " + userIdentifier);
+      return successStub(); 
+    }
+    
+    // Блокуємо повтори на 180 секунд
+    cache.put(userIdentifier, "true", 180);
+
+    // --- ВАЛІДАЦІЯ ---
+    if (!data.phone || !data.name || data.name.length < 1) {
+       writeLog("ERROR", "VALIDATION FAILED: No name or phone");
+       return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Invalid data"}))
+         .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // --- РОЗРІЗНЕННЯ ЗА ТИПОМ ---
+    if (data.type === "contact") {
+      // === КОНТАКТНЕ ПОВІДОМЛЕННЯ ===
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Контакти");
+      if (!sheet) throw new Error("Аркуш 'Контакти' не знайдено");
+
+      const newRow = [
+        new Date(),
+        data.name,
+        data.phone,
+        data.email || "—",
+        data.message || "—",
+        data.ip || "Не визначено"
+      ];
+
+      sheet.appendRow(newRow);
+      writeLog("SUCCESS", "Contact saved for: " + data.email);
+
+      const telegramMessage = `📩 *Нове повідомлення!*\n` +
+                              `👤 ${data.name}\n📞 ${data.phone}\n` +
+                              `✉️ ${data.email || "—"}\n\n` +
+                              `💬 ${data.message || "—"}\n` +
+                              `📍 IP: ${data.ip || "N/A"}`;
+
+      sendTelegramMessage(telegramMessage);
+
+    } else {
+      // === ЗАМОВЛЕННЯ ===
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Лист1");
+      if (!sheet) throw new Error("Аркуш 'Лист1' не знайдено");
+
+      const productsInfo = data.products ? data.products.map(p => `${p.title} (${p.quantity})`).join("\n") : "";
+
+      const newRow = [
+        new Date(),
+        data.name,
+        data.phone,
+        data.email || "—",
+        productsInfo,
+        data.country || "—",
+        data.total || 0,
+        data.ip || "Не визначено"
+      ];
+
+      sheet.appendRow(newRow);
+      writeLog("SUCCESS", "Order saved for: " + data.email);
+
+      const telegramMessage = `⚡️ *Нове замовлення!*\n` +
+                              `👤 ${data.name}\n📞 ${data.phone}\n` +
+                              `💰 ${data.total} $\n` +
+                              `📍 IP: ${data.ip || "N/A"}\n\n` +
+                              `🛒 ${productsInfo}`;
+
+      sendTelegramMessage(telegramMessage);
+    }
+
+    return successStub();
+
+  } catch (error) {
+    writeLog("CRITICAL ERROR", error.toString());
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// --- ДОПОМІЖНІ ФУНКЦІЇ ---
+
+function successStub() {
+  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Функція для запису в вкладку Logs
+function writeLog(level, message) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Logs");
+    if (sheet) {
+      // Додаємо рядок: Час | Рівень | Повідомлення
+      sheet.appendRow([new Date(), level, message]);
+    } else {
+      // Якщо вкладки немає, пишемо в консоль Google
+      Logger.log("TAB 'Logs' NOT FOUND! " + level + ": " + message);
+    }
+  } catch (e) {
+    Logger.log("LOGGING FAILED: " + e.toString());
+  }
+}
+
+function sendTelegramMessage(text) {
+  const scriptProps = PropertiesService.getScriptProperties();
+  const token = scriptProps.getProperty('TELEGRAM_TOKEN'); 
+  const chatId = scriptProps.getProperty('CHAT_ID');
+
+  if (!token || !chatId) {
+    writeLog("ERROR", "Telegram token or Chat ID missing");
+    return;
+  }
+
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const payload = { chat_id: chatId, text: text, parse_mode: "Markdown" };
+  const options = { method: "POST", contentType: "application/json", payload: JSON.stringify(payload), muteHttpExceptions: true };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var respCode = response.getResponseCode();
+    if (respCode !== 200) {
+       writeLog("TELEGRAM ERROR", "Response code: " + respCode + ". Body: " + response.getContentText());
+    }
+  } catch (error) {
+    writeLog("TELEGRAM EXCEPTION", error.toString());
+  }
+}

@@ -43,7 +43,8 @@
           v-show="product.images.length <= 1 ? false : true"
           class="suggested-image"
         >
-          <div v-for="image in product.images" class="image" :key="image">
+          <div v-for="image in product.images"
+class="image" :key="image">
             <img
               :src="require(`@/assets/img/${image}`)"
               @click="setActiveItem(image)"
@@ -63,26 +64,30 @@
           v-if="product.configurator.length > 0"
           v-model="product.checkList"
         >
-          <el-checkbox v-model="product.checked[0]"
-label="0">
+          <el-checkbox
+v-model="product.checked[0]" label="0"
+>
             {{ $t('shop.product.products.1.configurator.0') }} + ${{
               product.configurator[0]
             }}
           </el-checkbox>
-          <el-checkbox v-model="product.checked[1]"
-label="1">
+          <el-checkbox
+v-model="product.checked[1]" label="1"
+>
             {{ $t('shop.product.products.1.configurator.1') }} + ${{
               product.configurator[1]
             }}
           </el-checkbox>
-          <el-checkbox v-model="product.checked[2]"
-label="2">
+          <el-checkbox
+v-model="product.checked[2]" label="2"
+>
             {{ $t('shop.product.products.1.configurator.2') }} + ${{
               product.configurator[2]
             }}
           </el-checkbox>
-          <el-checkbox v-model="product.checked[3]"
-label="3">
+          <el-checkbox
+v-model="product.checked[3]" label="3"
+>
             {{ $t('shop.product.products.1.configurator.3') }} + ${{
               product.configurator[3]
             }}

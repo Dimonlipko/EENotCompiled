@@ -24,10 +24,7 @@ src="@/assets/img/maintenance.svg" alt="" />
           <p>{{ $t('service.services.service1.p') }}</p>
         </div>
       </el-col>
-      <el-col
-:xs="24" :sm="10"
-:lg="4"
->
+      <el-col :xs="24" :sm="10" :lg="4">
         <div>
           <img
 src="@/assets/img/high-voltage.svg" alt="" />
@@ -47,10 +44,7 @@ src="@/assets/img/spring.svg" alt="" />
           <p>{{ $t('service.services.service3.p') }}</p>
         </div>
       </el-col>
-      <el-col
-:xs="24" :sm="10"
-:md="10" :lg="4"
->
+      <el-col :xs="24" :sm="10" :md="10" :lg="4">
         <div>
           <img
 src="@/assets/img/airbag.svg" alt="" />

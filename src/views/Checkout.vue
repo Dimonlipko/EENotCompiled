@@ -1,10 +1,13 @@
 <template>
   <div class="contact">
-    <el-row type="flex"
-class="row-bg" justify="center">
+    <el-row
+type="flex" class="row-bg"
+justify="center"
+>
       <el-col :span="20">
         <h2>{{ $t(`checkout.title`) }}</h2>
-        <el-form ref="form" method="POST" :model="form">
+        <el-form ref="form"
+method="POST" :model="form">
           <el-form-item class="antispam-field">
             <el-input
               v-model="form.website"
@@ -45,7 +48,8 @@ class="row-bg" justify="center">
             />
           </el-form-item>
 
-          <el-row v-for="product in products" type="flex" :key="product.id">
+          <el-row v-for="product in products"
+type="flex" :key="product.id">
             <el-col :span="9">
               <img
                 :src="require(`@/assets/img/${product.images[0]}`)"
@@ -59,8 +63,9 @@ class="row-bg" justify="center">
                 <div v-if="product.totalPrice">
                   <h5>Additional config:</h5>
                   <ul class="product-configurator">
-                    <li v-for="check in product.checkList"
-:key="check">
+                    <li
+v-for="check in product.checkList" :key="check"
+>
                       {{ $t('shop.product.products.1.configurator.' + check) }}:
                       + ${{ product.configurator[check] }}
                     </li>
@@ -84,13 +89,15 @@ class="row-bg" justify="center">
             {{ $t('shop.cart.total') }}: <b>${{ total }}</b>
           </p>
           <el-form-item>
-            <el-button type="primary"
-@click="submitForm()">
+            <el-button
+type="primary" @click="submitForm()"
+>
               {{ $t('checkout.form.submit') }}
             </el-button>
           </el-form-item>
         </el-form>
-        <div v-if="processing" class="processing-message">
+        <div v-if="processing"
+class="processing-message">
           <div
             v-loading="processing"
             element-loading-text="Sending..."
@@ -168,6 +175,7 @@ export default {
 
       // 3. Формування даних для відправки
       const orderData = {
+        type: 'order',
         name: this.form.name,
         phone: this.form.phone,
         email: this.form.email,

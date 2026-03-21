@@ -6,13 +6,15 @@
     label-position="top"
     class="auth-form"
   >
-    <el-form-item label="Email"
-prop="email">
+    <el-form-item
+label="Email" prop="email"
+>
       <el-input
 v-model="form.email" placeholder="Enter your email" />
     </el-form-item>
-    <el-form-item label="Password"
-prop="password">
+    <el-form-item
+label="Password" prop="password"
+>
       <el-input
         v-model="form.password"
         type="password"

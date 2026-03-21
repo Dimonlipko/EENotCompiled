@@ -1,7 +1,9 @@
 <template>
   <div class="batteries">
-    <el-row type="flex"
-justify="center" align="middle">
+    <el-row
+type="flex" justify="center"
+align="middle"
+>
       <el-col :span="18">
         <p>{{ $t(`batteries.p1`) }}</p>
         <p>{{ $t(`batteries.p2`) }}</p>

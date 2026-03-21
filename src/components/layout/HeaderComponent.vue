@@ -20,7 +20,8 @@ export default class HeaderComponent extends Vue {
   menuNav() {
     this.menuIsActive = !this.menuIsActive
     if (this.menuIsActive) {
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = 'hidden'
       document.body.style.paddingRight = scrollbarWidth + 'px'
     } else {
@@ -62,11 +63,18 @@ export default class HeaderComponent extends Vue {
 <template>
   <div>
     <el-header height="auto">
-      <el-row type="flex" justify="space-between">
-        <el-col class="header-logo" :span="12">
-          <router-link to="/"><img src="/E-Engines_logo_white.svg" alt="logo" /></router-link>
+      <el-row type="flex"
+justify="space-between">
+        <el-col class="header-logo"
+:span="12">
+          <router-link
+to="/">
+            <img
+src="/E-Engines_logo_white.svg" alt="logo" />
+          </router-link>
         </el-col>
-        <el-col class="header-menu" :span="12">
+        <el-col class="header-menu"
+:span="12">
           <el-button
             v-if="!windowWidthFlag"
             plain
@@ -87,13 +95,15 @@ export default class HeaderComponent extends Vue {
             text-color="#fff"
             active-text-color="#00ddc0"
           >
-            <el-menu-item v-for="item in menuItems" :key="item.path">
+            <el-menu-item v-for="item in menuItems"
+:key="item.path">
               <router-link :to="item.path">
                 {{ $t(item.labelKey) }}
               </router-link>
             </el-menu-item>
           </el-menu>
-          <el-radio-group v-model="lang" @change="switchLang" size="mini">
+          <el-radio-group v-model="lang"
+@change="switchLang" size="mini">
             <el-radio-button label="ua">
               Ua
             </el-radio-button>
@@ -113,8 +123,9 @@ export default class HeaderComponent extends Vue {
     />
 
     <!-- Mobile sidebar -->
-    <nav class="sidebar"
-:class="{ open: menuIsActive }">
+    <nav
+class="sidebar" :class="{ open: menuIsActive }"
+>
       <div class="sidebar-title">
         <img
 src="/E-Engines_logo_white.svg" alt="logo" />
