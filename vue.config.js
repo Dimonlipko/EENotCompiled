@@ -12,6 +12,7 @@ module.exports = {
     compress: true,
     public: 'electricengines.com.ua', // That solved it
   },
+  parallel: false,
   configureWebpack: {
     devtool: 'source-map',
   },
