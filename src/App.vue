@@ -19,6 +19,13 @@ export default {
     HeaderComponent,
     FooterComponent,
   },
+  mounted() {
+    const redirectPath = sessionStorage.getItem('originalUrl')
+    if (redirectPath && redirectPath !== '/') {
+      sessionStorage.removeItem('originalUrl')
+      this.$router.replace(redirectPath)
+    }
+  },
 }
 </script>
 

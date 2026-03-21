@@ -7,14 +7,8 @@
     <link rel="icon" href="<%= BASE_URL %>logo.png" />
     <title>Electric Engines - electric and hybrid cars service</title>
     <script type="text/javascript">
-        // Запам'ятовуємо URL, з якого прийшли
-        var originalUrl = window.location.pathname;
-
-        // Перенаправлення на корінь
-        window.location.href = '/'; // Перенаправляємо на головну сторінку
-
-        // Зберігаємо URL, на який намагалися зайти
-        sessionStorage.setItem('originalUrl', originalUrl);
+        sessionStorage.setItem('originalUrl', window.location.pathname + window.location.search);
+        window.location.replace('/');
     </script>
 </head>
 <body>
