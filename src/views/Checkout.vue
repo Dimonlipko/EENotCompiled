@@ -1,42 +1,51 @@
 <template>
   <div class="contact">
-    <el-row type="flex" class="row-bg" justify="center">
+    <el-row type="flex"
+class="row-bg" justify="center">
       <el-col :span="20">
         <h2>{{ $t(`checkout.title`) }}</h2>
-        <el-form method="POST" ref="form" :model="form">
+        <el-form ref="form" method="POST" :model="form">
+          <el-form-item class="antispam-field">
+            <el-input
+              v-model="form.website"
+              name="website"
+              autocomplete="off"
+              tabindex="-1"
+            />
+          </el-form-item>
           <el-form-item>
             <el-input
+              v-model="form.name"
               name="name"
               :placeholder="$t(`contact.form.name`)"
-              v-model="form.name"
               required
-            ></el-input>
+            />
           </el-form-item>
           <el-form-item>
             <el-input
+              v-model="form.phone"
               name="phone"
               :placeholder="$t(`contact.form.phone`)"
-              v-model="form.phone"
               required
-            ></el-input>
+            />
           </el-form-item>
           <el-form-item>
             <el-input
+              v-model="form.email"
               name="email"
               :placeholder="$t(`contact.form.email`)"
-              v-model="form.email"
               required
-            ></el-input>
+            />
           </el-form-item>
           <el-form-item>
             <el-input
+              v-model="form.country"
               name="country"
               :placeholder="$t(`checkout.form.country`)"
-              v-model="form.country"
-            ></el-input>
+            />
           </el-form-item>
 
-          <el-row type="flex" v-for="product in products" :key="product.id">
+          <el-row v-for="product in products" type="flex" :key="product.id">
             <el-col :span="9">
               <img
                 :src="require(`@/assets/img/${product.images[0]}`)"
@@ -50,7 +59,8 @@
                 <div v-if="product.totalPrice">
                   <h5>Additional config:</h5>
                   <ul class="product-configurator">
-                    <li v-for="check in product.checkList" :key="check">
+                    <li v-for="check in product.checkList"
+:key="check">
                       {{ $t('shop.product.products.1.configurator.' + check) }}:
                       + ${{ product.configurator[check] }}
                     </li>
@@ -74,17 +84,18 @@
             {{ $t('shop.cart.total') }}: <b>${{ total }}</b>
           </p>
           <el-form-item>
-            <el-button type="primary" @click="submitForm()">
+            <el-button type="primary"
+@click="submitForm()">
               {{ $t('checkout.form.submit') }}
             </el-button>
           </el-form-item>
         </el-form>
-        <div class="processing-message" v-if="processing">
+        <div v-if="processing" class="processing-message">
           <div
             v-loading="processing"
             element-loading-text="Sending..."
             customClass="loading"
-          ></div>
+          />
         </div>
       </el-col>
     </el-row>
@@ -92,8 +103,8 @@
 </template>
 
 <script>
-import { mapGetters, mapState } from 'vuex'
 import axios from 'axios'
+import { mapGetters, mapState } from 'vuex'
 
 export default {
   data() {
@@ -103,21 +114,29 @@ export default {
         phone: '',
         email: '',
         country: '',
+        // Поле пастка для ботів
+        website: '',
       },
       processing: false,
+      startTime: 0, // Для відстеження часу заповнення
     }
   },
   computed: {
     ...mapState({
-      checkoutStatus: (state) => state.cart.checkoutStatus,
+      checkoutStatus: state => state.cart.checkoutStatus,
     }),
     ...mapGetters('cart', {
       products: 'cartProducts',
       total: 'cartTotalPrice',
     }),
   },
+  mounted() {
+    // Фіксуємо час, коли користувач відкрив сторінку
+    this.startTime = Date.now()
+  },
   methods: {
-    submitForm() {
+    async submitForm() {
+      // 1. Валідація полів
       if (
         !this.form.name ||
         !this.form.phone ||
@@ -135,36 +154,53 @@ export default {
 
       this.processing = true
 
+      // 2. Отримання IP адреси клієнта
+      let clientIp = 'Unknown'
+      try {
+        // Безкоштовний API для отримання IP
+        const ipResponse = await axios.get('https://api.ipify.org?format=json')
+        if (ipResponse.data && ipResponse.data.ip) {
+          clientIp = ipResponse.data.ip
+        }
+      } catch (e) {
+        console.warn('Failed to get IP address, continuing without it.')
+      }
+
+      // 3. Формування даних для відправки
       const orderData = {
         name: this.form.name,
         phone: this.form.phone,
         email: this.form.email,
         country: this.form.country,
+
+        // --- ДАНІ ДЛЯ ЗАХИСТУ ТА АНАЛІТИКИ ---
+        ip: clientIp,
+        honeypot: this.form.website, // Якщо заповнено - це бот
+        timeTaken: Date.now() - this.startTime, // Час заповнення форми в мс
+        // -------------------------------------
+
         total: this.total,
-        products: this.products.map((product) => ({
+        products: this.products.map(product => ({
           title: product.title,
           price: product.price,
           quantity: product.quantity,
         })),
       }
 
-      // --- ЗМІНИ ПОЧИНАЮТЬСЯ ТУТ ---
-      // Використовуємо вашу адресу Google Apps Script
-      const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec';
+      // Адреса вашого Google Apps Script
+      // УВАГА: Якщо ви зробили новий деплой, перевірте чи не змінився URL!
+      const GOOGLE_SCRIPT_URL =
+        'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec'
 
-      axios.post(
-          GOOGLE_SCRIPT_URL,
-          JSON.stringify(orderData), // Ручне перетворення в рядок
-          {
-            headers: {
-              'Content-Type': 'text/plain;charset=utf-8', // Заголовок для обходу CORS Preflight
-            },
-          }
-        )
-        .then((response) => {
+      axios
+        .post(GOOGLE_SCRIPT_URL, JSON.stringify(orderData), {
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        })
+        .then(response => {
           this.processing = false
-          
-          // Перевіряємо структуру відповіді від Google Script
+
           if (response.data && response.data.status === 'success') {
             this.$notify({
               title: this.$t('notifications.succesfullOrderTitle'),
@@ -176,7 +212,6 @@ export default {
             this.$store.dispatch('cart/clearCart')
             this.$router.push('/shop')
           } else {
-            // Якщо скрипт повернув помилку
             this.$notify.error({
               title: this.$t('notifications.errorTitle'),
               message:
@@ -187,7 +222,7 @@ export default {
             })
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('Submission error:', error)
           this.processing = false
           this.$notify.error({
@@ -197,7 +232,6 @@ export default {
             duration: 4500,
           })
         })
-      // --- КІНЕЦЬ ЗМІН ---
     },
   },
 }
@@ -220,5 +254,17 @@ li {
 }
 h5 {
   margin-bottom: 5px;
+}
+
+/* Стиль для прихованого поля (Honeypot) */
+/* Воно має бути в DOM, але невидиме для користувача */
+.antispam-field {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  z-index: -1;
+  height: 0;
+  width: 0;
+  overflow: hidden;
 }
 </style>

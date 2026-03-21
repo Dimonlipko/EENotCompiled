@@ -6,18 +6,24 @@
     label-position="top"
     class="auth-form"
   >
-    <el-form-item label="Email" prop="email">
-      <el-input v-model="form.email" placeholder="Enter your email"></el-input>
+    <el-form-item label="Email"
+prop="email">
+      <el-input
+v-model="form.email" placeholder="Enter your email" />
     </el-form-item>
-    <el-form-item label="Password" prop="password">
+    <el-form-item label="Password"
+prop="password">
       <el-input
         v-model="form.password"
         type="password"
         placeholder="Enter your password"
-      ></el-input>
+      />
     </el-form-item>
     <el-form-item>
-      <el-button type="primary" @click="submitForm">Login</el-button>
+      <el-button
+type="primary" @click="submitForm">
+        Login
+      </el-button>
     </el-form-item>
   </el-form>
 </template>

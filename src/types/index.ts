@@ -1,7 +1,7 @@
 export interface Item {
-	id: number
-	title: string
-	description: string
-	default_price: number
-	images: string[]
+  id: number
+  title: string
+  description: string
+  default_price: number
+  images: string[]
 }

@@ -7,4 +7,4 @@ module.exports = {
     '@babel/plugin-proposal-class-properties', // підтримка класових властивостей
     '@babel/plugin-transform-runtime', // допомагає з асинхронними функціями і генераторами
   ],
-};
+}

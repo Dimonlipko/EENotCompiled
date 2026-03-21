@@ -40,8 +40,7 @@ const routes: Array<RouteConfig> = [
   },
   {
     path: '/shop',
-    name: 'Shop',
-    component: Shop,
+    redirect: '/',
   },
   {
     path: '/shop/product/:id',

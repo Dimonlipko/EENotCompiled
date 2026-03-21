@@ -8,10 +8,11 @@
               Welcome, {{ user.data.displayName || user.data.email }}
             </div>
             <div class="card-body">
-              <div class="alert alert-success" role="alert">
+              <div class="alert alert-success"
+role="alert">
                 You are logged in!
                 <div class="my-4">
-                  <button @click.prevent="signOut" class="btn btn-primary">
+                  <button class="btn btn-primary" @click.prevent="signOut">
                     Log Out
                   </button>
                 </div>
@@ -26,6 +27,7 @@
 
 <script>
 import { mapGetters } from 'vuex'
+
 import { auth } from '../firebaseConfig'
 
 export default {
