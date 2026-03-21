@@ -48,6 +48,45 @@ function doPost(e) {
          .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // Валідація email
+    if (data.email && !/^.+@.+\..+$/.test(data.email)) {
+      writeLog("WARN", "INVALID EMAIL: " + data.email + " IP: " + (data.ip || "Unknown"));
+      return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Invalid email"}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Валідація телефону (мінімум 9 цифр)
+    var phoneDigits = (data.phone || "").replace(/[^\d]/g, "");
+    if (phoneDigits.length < 9) {
+      writeLog("WARN", "INVALID PHONE: " + data.phone + " IP: " + (data.ip || "Unknown"));
+      return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Invalid phone"}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // --- 🛡️ RATE LIMIT за IP/добу (макс 5 запитів за 24 години) ---
+    if (data.ip && data.ip !== 'Unknown') {
+      var rateLimitKey = "rate_" + data.ip;
+      var requestCount = cache.get(rateLimitKey);
+      var count = requestCount ? parseInt(requestCount) : 0;
+      if (count >= 5) {
+        writeLog("WARN", "RATE LIMIT EXCEEDED: " + data.ip + " (" + count + " requests)");
+        return successStub();
+      }
+      cache.put(rateLimitKey, String(count + 1), 86400);
+    }
+
+    // --- 🛡️ URL-СПАМ ФІЛЬТР (3+ посилань = спам) ---
+    var messageText = data.message || "";
+    var urlCount = (messageText.match(/https?:\/\//gi) || []).length;
+    if (urlCount >= 3) {
+      writeLog("WARN", "URL SPAM DETECTED: " + urlCount + " URLs. IP: " + (data.ip || "Unknown"));
+      return successStub();
+    }
+
+    // --- САНІТИЗАЦІЯ (видалення HTML/script тегів) ---
+    if (data.name) data.name = data.name.replace(/<[^>]*>/g, "");
+    if (data.message) data.message = data.message.replace(/<[^>]*>/g, "");
+
     // --- РОЗРІЗНЕННЯ ЗА ТИПОМ ---
     if (data.type === "contact") {
       // === КОНТАКТНЕ ПОВІДОМЛЕННЯ ===

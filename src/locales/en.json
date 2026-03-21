@@ -105,6 +105,8 @@
 		"errorTitle": "Error",
 		"error": "Something went wrong. Please try again.",
 		"addedToCart": "{title} add to cart!",
-		"fillAllFields": "Fill all fields, Please!"
+		"fillAllFields": "Fill all fields, Please!",
+		"invalidEmail": "Please enter a valid email address.",
+		"invalidPhone": "Phone number must contain at least 9 digits."
 	}
 }

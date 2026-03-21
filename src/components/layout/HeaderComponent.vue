@@ -3,7 +3,9 @@ import { Component, Vue } from 'vue-property-decorator'
 
 @Component({})
 export default class HeaderComponent extends Vue {
-  activeIndex = '1'
+  get activeIndex() {
+    return this.$route.path
+  }
   menuIsActive = false
   windowWidth = 0
   windowWidthFlag = true
@@ -96,7 +98,7 @@ src="/E-Engines_logo_white.svg" alt="logo" />
             active-text-color="#00ddc0"
           >
             <el-menu-item v-for="item in menuItems"
-:key="item.path">
+:key="item.path" :index="item.path">
               <router-link :to="item.path">
                 {{ $t(item.labelKey) }}
               </router-link>
@@ -161,6 +163,7 @@ src="/E-Engines_logo_white.svg" alt="logo" />
   .el-menu-item {
     transition: none;
     background: transparent;
+    border-bottom: 2px solid transparent !important;
     a {
       display: block;
       height: 100%;
@@ -168,7 +171,7 @@ src="/E-Engines_logo_white.svg" alt="logo" />
       text-decoration: none;
     }
     &.is-active {
-      border: none;
+      border-bottom: 2px solid #00ddc0 !important;
     }
     &.is-active a {
       color: #00ddc0;

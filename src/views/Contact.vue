@@ -38,9 +38,10 @@ method="POST" :model="form">
           <el-form-item class="antispam-field">
             <el-input
               v-model="form.website"
-              name="website"
-              autocomplete="off"
+              name="url_confirm"
+              autocomplete="nope"
               tabindex="-1"
+              aria-hidden="true"
             />
           </el-form-item>
           <el-form-item>
@@ -80,7 +81,7 @@ method="POST" :model="form">
           <el-form-item>
             <el-button
 type="primary" @click="submitForm()">
-              $t("contact.form.send") }}
+              {{ $t("contact.form.send") }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -112,13 +113,20 @@ export default {
       },
       processing: false,
       startTime: 0,
+      clientIp: 'Unknown',
     }
   },
   mounted() {
     this.startTime = Date.now()
+    axios
+      .get('https://api.ipify.org?format=json')
+      .then(res => {
+        if (res.data && res.data.ip) this.clientIp = res.data.ip
+      })
+      .catch(() => {})
   },
   methods: {
-    async submitForm() {
+    submitForm() {
       if (
         !this.form.name ||
         !this.form.phone ||
@@ -134,17 +142,27 @@ export default {
         return
       }
 
-      this.processing = true
-
-      let clientIp = 'Unknown'
-      try {
-        const ipResponse = await axios.get('https://api.ipify.org?format=json')
-        if (ipResponse.data && ipResponse.data.ip) {
-          clientIp = ipResponse.data.ip
-        }
-      } catch (e) {
-        console.warn('Failed to get IP address')
+      if (!/^.+@.+\..+$/.test(this.form.email)) {
+        this.$notify.error({
+          title: this.$t('notifications.errorTitle'),
+          message: this.$t('notifications.invalidEmail'),
+          offset: 100,
+          duration: 4500,
+        })
+        return
       }
+
+      if (this.form.phone.replace(/[\s\-\+\(\)]/g, '').length < 9) {
+        this.$notify.error({
+          title: this.$t('notifications.errorTitle'),
+          message: this.$t('notifications.invalidPhone'),
+          offset: 100,
+          duration: 4500,
+        })
+        return
+      }
+
+      this.processing = true
 
       const contactData = {
         type: 'contact',
@@ -152,13 +170,13 @@ export default {
         phone: this.form.phone,
         email: this.form.email,
         message: this.form.message,
-        ip: clientIp,
+        ip: this.clientIp,
         honeypot: this.form.website,
         timeTaken: Date.now() - this.startTime,
       }
 
       const GOOGLE_SCRIPT_URL =
-        'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec'
+        'https://script.google.com/macros/s/AKfycbx9CBk8f2X0CZeM7ik-UVpRQ-YXYPOTA3I6mWeD0vmusJnmj0Iq0MNOFyaTybaevqn5/exec'
 
       axios
         .post(GOOGLE_SCRIPT_URL, JSON.stringify(contactData), {

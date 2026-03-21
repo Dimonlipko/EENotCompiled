@@ -125,7 +125,8 @@ export default {
         website: '',
       },
       processing: false,
-      startTime: 0, // Для відстеження часу заповнення
+      startTime: 0,
+      clientIp: 'Unknown',
     }
   },
   computed: {
@@ -138,12 +139,16 @@ export default {
     }),
   },
   mounted() {
-    // Фіксуємо час, коли користувач відкрив сторінку
     this.startTime = Date.now()
+    axios
+      .get('https://api.ipify.org?format=json')
+      .then(res => {
+        if (res.data && res.data.ip) this.clientIp = res.data.ip
+      })
+      .catch(() => {})
   },
   methods: {
-    async submitForm() {
-      // 1. Валідація полів
+    submitForm() {
       if (
         !this.form.name ||
         !this.form.phone ||
@@ -159,30 +164,35 @@ export default {
         return
       }
 
-      this.processing = true
-
-      // 2. Отримання IP адреси клієнта
-      let clientIp = 'Unknown'
-      try {
-        // Безкоштовний API для отримання IP
-        const ipResponse = await axios.get('https://api.ipify.org?format=json')
-        if (ipResponse.data && ipResponse.data.ip) {
-          clientIp = ipResponse.data.ip
-        }
-      } catch (e) {
-        console.warn('Failed to get IP address, continuing without it.')
+      if (!/^.+@.+\..+$/.test(this.form.email)) {
+        this.$notify.error({
+          title: this.$t('notifications.errorTitle'),
+          message: this.$t('notifications.invalidEmail'),
+          offset: 150,
+          duration: 4500,
+        })
+        return
       }
 
-      // 3. Формування даних для відправки
+      if (this.form.phone.replace(/[\s\-\+\(\)]/g, '').length < 9) {
+        this.$notify.error({
+          title: this.$t('notifications.errorTitle'),
+          message: this.$t('notifications.invalidPhone'),
+          offset: 150,
+          duration: 4500,
+        })
+        return
+      }
+
+      this.processing = true
+
       const orderData = {
         type: 'order',
         name: this.form.name,
         phone: this.form.phone,
         email: this.form.email,
         country: this.form.country,
-
-        // --- ДАНІ ДЛЯ ЗАХИСТУ ТА АНАЛІТИКИ ---
-        ip: clientIp,
+        ip: this.clientIp,
         honeypot: this.form.website, // Якщо заповнено - це бот
         timeTaken: Date.now() - this.startTime, // Час заповнення форми в мс
         // -------------------------------------
@@ -198,7 +208,7 @@ export default {
       // Адреса вашого Google Apps Script
       // УВАГА: Якщо ви зробили новий деплой, перевірте чи не змінився URL!
       const GOOGLE_SCRIPT_URL =
-        'https://script.google.com/macros/s/AKfycbzUf9vTcGVULDw2wtfpAo3Y4Ektw2hC3aPZ5cuysYbAs7oM8mW0_PGkXX9bNfz3GdwG/exec'
+        'https://script.google.com/macros/s/AKfycbx9CBk8f2X0CZeM7ik-UVpRQ-YXYPOTA3I6mWeD0vmusJnmj0Iq0MNOFyaTybaevqn5/exec'
 
       axios
         .post(GOOGLE_SCRIPT_URL, JSON.stringify(orderData), {

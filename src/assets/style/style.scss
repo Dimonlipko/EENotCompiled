@@ -113,9 +113,13 @@ a {
 		width: 21px;
 		vertical-align: middle;
 	}
+	.path {
+		stroke: #00ddc0;
+	}
 	p {
 		margin: 0;
 		padding-left: 5px;
 		display: inline-block;
+		color: #00ddc0;
 	}
 }
