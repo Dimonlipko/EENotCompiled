@@ -23,6 +23,19 @@ body,
 
 body {
 	background-color: #f0f2f5;
+	font-family: 'Roboto', Helvetica, Arial, sans-serif;
+}
+
+/* Element UI — глобально Roboto для компонентів що рендеряться в body */
+.el-popover,
+.el-dialog,
+.el-notification,
+.el-message,
+.el-input__inner,
+.el-textarea__inner,
+.el-button,
+.el-form-item__label {
+	font-family: 'Roboto', Helvetica, Arial, sans-serif !important;
 }
 
 #app {
@@ -102,6 +115,70 @@ a {
 		color: #00b39b;
 	}
 }
+/* Input focus — зелений */
+.el-input__inner:focus,
+.el-textarea__inner:focus {
+	border-color: #00ddc0 !important;
+}
+.el-input.is-active .el-input__inner {
+	border-color: #00ddc0 !important;
+}
+
+/* Checkbox — зелений */
+.el-checkbox__input.is-checked .el-checkbox__inner,
+.el-checkbox__input.is-indeterminate .el-checkbox__inner {
+	background-color: #00ddc0 !important;
+	border-color: #00ddc0 !important;
+}
+.el-checkbox__input.is-focus .el-checkbox__inner,
+.el-checkbox__inner:hover {
+	border-color: #00ddc0 !important;
+}
+.el-checkbox__input.is-checked + .el-checkbox__label {
+	color: #00ddc0 !important;
+}
+
+/* Notifications / Toasts — фірмовий стиль */
+.el-notification {
+	font-family: 'Roboto', Helvetica, Arial, sans-serif !important;
+	border-radius: 4px !important;
+	border-left: 4px solid #00ddc0 !important;
+	background-color: #424242 !important;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3) !important;
+
+	.el-notification__title {
+		color: #e0e0e0 !important;
+		font-weight: 500 !important;
+		font-size: 15px !important;
+	}
+	.el-notification__content {
+		color: #ccc !important;
+		font-size: 13px !important;
+	}
+	.el-notification__closeBtn {
+		color: #888 !important;
+		&:hover {
+			color: #e0e0e0 !important;
+		}
+	}
+	.el-notification__icon {
+		color: #00ddc0 !important;
+	}
+
+	&.el-notification--success {
+		border-left-color: #00ddc0 !important;
+		.el-notification__icon { color: #00ddc0 !important; }
+	}
+	&.el-notification--error {
+		border-left-color: #ff4d4f !important;
+		.el-notification__icon { color: #ff4d4f !important; }
+	}
+	&.el-notification--warning {
+		border-left-color: #ffc107 !important;
+		.el-notification__icon { color: #ffc107 !important; }
+	}
+}
+
 .el-menu {
 	z-index: 1;
 }

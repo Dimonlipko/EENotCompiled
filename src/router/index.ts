@@ -3,7 +3,6 @@ import VueRouter, { RouteConfig } from 'vue-router'
 
 import Batteries from '../views/Batteries.vue'
 import Blog from '../views/Blog.vue'
-import Checkout from '../views/Checkout.vue'
 import Contact from '../views/Contact.vue'
 import PageNotFound from '../views/PageNotFound.vue'
 import Product from '../views/ProductPage.vue'
@@ -47,12 +46,7 @@ const routes: Array<RouteConfig> = [
     name: 'Product',
     component: Product,
   },
-  {
-    path: '/checkout',
-    name: 'Checkout',
-    component: Checkout,
-  },
-  {
+{
     path: '*',
     name: '404',
     component: PageNotFound,

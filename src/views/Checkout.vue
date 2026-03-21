@@ -256,26 +256,84 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.contact {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+
+  h2 {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 24px;
+    color: #333;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #00ddc0;
+    margin-bottom: 20px;
+  }
+}
+
+::v-deep .el-input__inner {
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-family: 'Roboto', sans-serif;
+  &:focus {
+    border-color: #00ddc0;
+  }
+}
+
+.el-row {
+  padding: 12px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
 .image {
-  max-height: 200px;
+  max-height: 180px;
   display: block;
   margin-left: auto;
   margin-right: auto;
   max-width: 50%;
+  border-radius: 6px;
 }
+
+.productListInCart {
+  h2 {
+    font-size: 18px;
+    border-bottom: none;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+  p {
+    color: #555;
+    font-size: 14px;
+  }
+}
+
 ul {
   margin-top: 0;
   padding: 0 0 0 15px;
 }
 li {
   list-style-type: none;
+  font-size: 13px;
+  color: #888;
+  padding: 2px 0;
 }
 h5 {
   margin-bottom: 5px;
+  font-size: 13px;
+  color: #888;
+  font-weight: 400;
 }
 
-/* Стиль для прихованого поля (Honeypot) */
-/* Воно має бути в DOM, але невидиме для користувача */
+> p {
+  font-size: 18px;
+  font-weight: 500;
+  padding-top: 12px;
+  border-top: 2px solid #00ddc0;
+}
+
 .antispam-field {
   position: absolute;
   left: -9999px;

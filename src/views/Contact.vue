@@ -58,6 +58,7 @@ method="POST" :model="form">
               name="phone"
               :placeholder="$t(`contact.form.phone`)"
               required
+              @input="form.phone = form.phone.replace(/[^0-9+\-() ]/g, '')"
             />
           </el-form-item>
           <el-form-item>

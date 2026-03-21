@@ -93,7 +93,8 @@
 		"title": "Checkout",
 		"form": {
 			"country": "Country",
-			"submit": "Submit order"
+			"submit": "Submit order",
+			"cancel": "Cancel"
 		}
 	},
 	"notifications": {
