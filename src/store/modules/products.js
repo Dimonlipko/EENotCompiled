@@ -29,14 +29,18 @@ const getters = {
 
 // actions
 const actions = {
-  getAllProducts({ commit }) {
-    shop.getProducts(products => {
+  async getAllProducts({ commit }) {
+    await shop.getProducts(products => {
       commit('setProducts', products)
+      commit('setDefaultProducts', products)
     })
   },
-  getAllDefaultProducts({ commit }) {
-    shop.getDefaultProducts(products => {
+  async getAllDefaultProducts({ commit }) {
+    await shop.getDefaultProducts(products => {
       commit('setDefaultProducts', products)
+      if (!this.state.products.all.length) {
+        commit('setProducts', products)
+      }
     })
   },
   addNewProduct({ state, commit }, product) {

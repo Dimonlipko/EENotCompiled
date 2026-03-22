@@ -1,17 +1,30 @@
+// === GET — заглушка ===
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "2.1", timestamp: new Date().toISOString()}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// === POST — Замовлення, контакти та Telegram webhook ===
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  lock.tryLock(10000);
-
   try {
-    // --- ЛОГУВАННЯ ВХІДНОГО ЗАПИТУ ---
-    // Ми пишемо "сирі" дані в лог, щоб бачити, що реально приходить
-    var rawData = e.postData ? e.postData.contents : "No postData";
-    writeLog("INFO", "Вхідний запит: " + rawData);
-    // ---------------------------------
-
     if (!e.postData || !e.postData.contents) throw new Error("No data received");
 
     const data = JSON.parse(e.postData.contents);
+
+    // --- TELEGRAM WEBHOOK ---
+    if (data.update_id !== undefined) {
+      if (data.message) {
+        try { handleTelegramWebhook(data); } catch(ex) {}
+      }
+      return HtmlService.createHtmlOutput();
+    }
+
+    // --- Замовлення/контакти — з lock і логуванням ---
+    var lock = LockService.getScriptLock();
+    lock.tryLock(10000);
+
+    var rawData = e.postData.contents;
+    writeLog("INFO", "Вхідний запит: " + rawData);
 
     // --- 🛡️ АНТИ-СПАМ (Honeypot & Time) ---
     if (data.honeypot && data.honeypot.length > 0) {
@@ -150,7 +163,7 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()}))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
-    lock.releaseLock();
+    try { lock.releaseLock(); } catch(ex) {}
   }
 }
 
@@ -200,4 +213,386 @@ function sendTelegramMessage(text) {
   } catch (error) {
     writeLog("TELEGRAM EXCEPTION", error.toString());
   }
+}
+
+// ============================================================
+// === TELEGRAM BOT — КЕРУВАННЯ МАГАЗИНОМ ===
+// ============================================================
+
+function handleTelegramWebhook(update) {
+  try {
+    const message = update.message;
+    if (!message) return successStub();
+
+    // Ігнорувати повідомлення від ботів (захист від зациклення)
+    if (message.from && message.from.is_bot) return;
+
+    const chatId = String(message.chat.id);
+    const adminChatId = String(PropertiesService.getScriptProperties().getProperty('CHAT_ID')).trim();
+
+    // Тільки адмін може керувати
+    if (chatId !== adminChatId) {
+      writeLog("BOT", "ACCESS DENIED: chatId=" + chatId + " adminChatId=" + adminChatId);
+      return successStub();
+    }
+
+    const text = message.text || message.caption || "";
+
+    // Фото + підпис = додати товар
+    if (message.photo && message.photo.length > 0) {
+      const caption = message.caption || "";
+      if (caption.startsWith("/addphoto")) {
+        return handleAddPhoto(chatId, message, caption);
+      }
+      return handleNewProduct(chatId, message, caption);
+    }
+
+    // Текстові команди
+    if (text.startsWith("/list")) return handleList(chatId);
+    if (text.startsWith("/price")) return handlePrice(chatId, text);
+    if (text.startsWith("/delete")) return handleDelete(chatId, text);
+    if (text.startsWith("/restore")) return handleRestore(chatId, text);
+    if (text.startsWith("/options")) return handleOptions(chatId, text);
+    if (text.startsWith("/help") || text.startsWith("/start")) return handleHelp(chatId);
+
+    sendTelegramReply(chatId, "❓ Невідома команда. Надішли /help");
+    return successStub();
+
+  } catch (error) {
+    writeLog("BOT ERROR", error.toString());
+    return successStub();
+  }
+}
+
+// --- Додати товар (фото + підпис) ---
+function handleNewProduct(chatId, message, caption) {
+  // Формат: Title_UA | Title_EN | Price | Desc_UA | Desc_EN
+  var parts = caption.split("|").map(function(s) { return s.trim(); });
+  if (parts.length < 3) {
+    sendTelegramReply(chatId, "❌ Формат: Title_UA | Title_EN | Price | Desc_UA | Desc_EN");
+    return successStub();
+  }
+
+  var titleUA = parts[0];
+  var titleEN = parts[1] || titleUA;
+  var price = parseFloat(parts[2]) || 0;
+  var descUA = parts[3] || "";
+  var descEN = parts[4] || descUA;
+
+  // Завантажити фото
+  var fileId = message.photo[message.photo.length - 1].file_id; // найбільша якість
+  var products = githubGetProducts();
+  var newId = 1;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id >= newId) newId = products[i].id + 1;
+  }
+
+  var filename = "product-" + newId + "-1.jpg";
+  var imageUrl = uploadTelegramPhotoToGithub(fileId, filename);
+
+  if (!imageUrl) {
+    sendTelegramReply(chatId, "❌ Помилка завантаження фото.");
+    return successStub();
+  }
+
+  var newProduct = {
+    id: newId,
+    title: { ua: titleUA, en: titleEN },
+    price: price,
+    images: [imageUrl],
+    description: { ua: descUA, en: descEN },
+    options: []
+  };
+
+  products.push(newProduct);
+  githubUpdateProducts(products);
+
+  sendTelegramReply(chatId, "✅ Товар #" + newId + " додано!\n" + titleUA + " — $" + price);
+  return successStub();
+}
+
+// --- Додати фото до існуючого товару ---
+function handleAddPhoto(chatId, message, caption) {
+  // /addphoto ID
+  var parts = caption.split(/\s+/);
+  var id = parseInt(parts[1]);
+  if (!id) {
+    sendTelegramReply(chatId, "❌ Формат: /addphoto ID (надішли з фото)");
+    return successStub();
+  }
+
+  var products = githubGetProducts();
+  var product = null;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id === id) { product = products[i]; break; }
+  }
+  if (!product) {
+    sendTelegramReply(chatId, "❌ Товар #" + id + " не знайдено.");
+    return successStub();
+  }
+
+  var fileId = message.photo[message.photo.length - 1].file_id;
+  var photoNum = product.images.length + 1;
+  var filename = "product-" + id + "-" + photoNum + ".jpg";
+  var imageUrl = uploadTelegramPhotoToGithub(fileId, filename);
+
+  if (!imageUrl) {
+    sendTelegramReply(chatId, "❌ Помилка завантаження фото.");
+    return successStub();
+  }
+
+  product.images.push(imageUrl);
+  githubUpdateProducts(products);
+
+  sendTelegramReply(chatId, "✅ Фото додано до товару #" + id + " (всього: " + product.images.length + ")");
+  return successStub();
+}
+
+// --- Список товарів ---
+function handleList(chatId) {
+  var products = githubGetProducts();
+  if (products.length === 0) {
+    sendTelegramReply(chatId, "📦 Магазин порожній.");
+    return successStub();
+  }
+  var text = "📦 *Товари:*\n\n";
+  for (var i = 0; i < products.length; i++) {
+    var p = products[i];
+    text += "#" + p.id + " — " + p.title.ua + " — $" + p.price;
+    if (p.options && p.options.length > 0) text += " ⚙️";
+    text += "\n";
+  }
+  sendTelegramReply(chatId, text);
+  return successStub();
+}
+
+// --- Змінити ціну ---
+function handlePrice(chatId, text) {
+  // /price ID PRICE
+  var parts = text.split(/\s+/);
+  var id = parseInt(parts[1]);
+  var newPrice = parseFloat(parts[2]);
+  if (!id || isNaN(newPrice)) {
+    sendTelegramReply(chatId, "❌ Формат: /price ID ЦІНА");
+    return successStub();
+  }
+
+  var products = githubGetProducts();
+  var found = false;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id === id) {
+      products[i].price = newPrice;
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    sendTelegramReply(chatId, "❌ Товар #" + id + " не знайдено.");
+    return successStub();
+  }
+
+  githubUpdateProducts(products);
+  sendTelegramReply(chatId, "✅ Ціну товару #" + id + " змінено на $" + newPrice);
+  return successStub();
+}
+
+// --- Видалити товар ---
+function handleDelete(chatId, text) {
+  var parts = text.split(/\s+/);
+  var id = parseInt(parts[1]);
+  if (!id) {
+    sendTelegramReply(chatId, "❌ Формат: /delete ID");
+    return successStub();
+  }
+
+  var products = githubGetProducts();
+  var newProducts = products.filter(function(p) { return p.id !== id; });
+  if (newProducts.length === products.length) {
+    sendTelegramReply(chatId, "❌ Товар #" + id + " не знайдено.");
+    return successStub();
+  }
+
+  githubUpdateProducts(newProducts);
+  sendTelegramReply(chatId, "🗑 Товар #" + id + " видалено.");
+  return successStub();
+}
+
+// --- Відновити товар (не реалізовано — товар видаляється повністю) ---
+function handleRestore(chatId, text) {
+  sendTelegramReply(chatId, "ℹ️ Видалені товари не зберігаються. Додайте товар заново.");
+  return successStub();
+}
+
+// --- Додати опції ---
+function handleOptions(chatId, text) {
+  // /options ID опція1:ціна1;опція2:ціна2
+  var match = text.match(/^\/options\s+(\d+)\s+(.+)$/);
+  if (!match) {
+    sendTelegramReply(chatId, "❌ Формат: /options ID назва1:ціна1;назва2:ціна2");
+    return successStub();
+  }
+
+  var id = parseInt(match[1]);
+  var optionsStr = match[2];
+
+  var products = githubGetProducts();
+  var product = null;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id === id) { product = products[i]; break; }
+  }
+  if (!product) {
+    sendTelegramReply(chatId, "❌ Товар #" + id + " не знайдено.");
+    return successStub();
+  }
+
+  var optParts = optionsStr.split(";");
+  product.options = [];
+  for (var j = 0; j < optParts.length; j++) {
+    var kv = optParts[j].split(":");
+    if (kv.length >= 2) {
+      product.options.push({
+        name: { ua: kv[0].trim(), en: kv[0].trim() },
+        price: parseFloat(kv[1].trim()) || 0
+      });
+    }
+  }
+
+  githubUpdateProducts(products);
+  sendTelegramReply(chatId, "✅ Опції товару #" + id + " оновлено (" + product.options.length + " шт.)");
+  return successStub();
+}
+
+// --- Допомога ---
+function handleHelp(chatId) {
+  var text = "🤖 *Команди бота:*\n\n" +
+    "📸 *Фото + підпис* — додати товар\n" +
+    "Формат: `Title_UA | Title_EN | Price | Desc_UA | Desc_EN`\n\n" +
+    "📸 *Фото + /addphoto ID* — додати фото до товару\n\n" +
+    "📋 /list — список товарів\n" +
+    "💰 /price ID ЦІНА — змінити ціну\n" +
+    "🗑 /delete ID — видалити товар\n" +
+    "⚙️ /options ID назва1:ціна1;назва2:ціна2 — додати опції\n" +
+    "❓ /help — ця довідка";
+  sendTelegramReply(chatId, text);
+  return successStub();
+}
+
+// ============================================================
+// === GITHUB API ===
+// ============================================================
+
+var GITHUB_REPO = "Dimonlipko/Dimonlipko.github.io";
+var PRODUCTS_PATH = "products.json";
+var IMAGES_DIR = "img/products/";
+
+function getGithubHeaders() {
+  var token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  return {
+    "Authorization": "token " + token,
+    "Accept": "application/vnd.github.v3+json",
+    "User-Agent": "EE-Bot"
+  };
+}
+
+function githubGetFile(path) {
+  var url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/" + path;
+  var response = UrlFetchApp.fetch(url, {
+    method: "GET",
+    headers: getGithubHeaders(),
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() === 200) {
+    return JSON.parse(response.getContentText());
+  }
+  return null;
+}
+
+function githubPutFile(path, contentBase64, sha, commitMessage) {
+  var url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/" + path;
+  var payload = {
+    message: commitMessage,
+    content: contentBase64
+  };
+  if (sha) payload.sha = sha;
+
+  var response = UrlFetchApp.fetch(url, {
+    method: "PUT",
+    headers: getGithubHeaders(),
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  return response.getResponseCode() === 200 || response.getResponseCode() === 201;
+}
+
+function githubGetProducts() {
+  var file = githubGetFile(PRODUCTS_PATH);
+  if (!file) return [];
+  var content = Utilities.newBlob(Utilities.base64Decode(file.content)).getDataAsString();
+  return JSON.parse(content);
+}
+
+function githubUpdateProducts(products) {
+  var file = githubGetFile(PRODUCTS_PATH);
+  var sha = file ? file.sha : null;
+  var json = JSON.stringify(products, null, 2);
+  var base64 = Utilities.base64Encode(Utilities.newBlob(json).getBytes());
+  return githubPutFile(PRODUCTS_PATH, base64, sha, "Update products via Telegram bot");
+}
+
+function uploadTelegramPhotoToGithub(fileId, filename) {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+
+  // Отримати file_path
+  var fileInfo = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/getFile?file_id=" + fileId);
+  var filePath = JSON.parse(fileInfo.getContentText()).result.file_path;
+
+  // Завантажити blob
+  var fileBlob = UrlFetchApp.fetch("https://api.telegram.org/file/bot" + token + "/" + filePath);
+  var bytes = fileBlob.getBlob().getBytes();
+  var base64 = Utilities.base64Encode(bytes);
+
+  // Завантажити на GitHub
+  var path = IMAGES_DIR + filename;
+  var success = githubPutFile(path, base64, null, "Add product image: " + filename);
+
+  if (success) {
+    return "/" + path; // відносний URL для сайту
+  }
+  return null;
+}
+
+function sendTelegramReply(chatId, text) {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  var payload = { chat_id: chatId, text: text, parse_mode: "Markdown" };
+  UrlFetchApp.fetch(url, {
+    method: "POST",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+}
+
+// ============================================================
+// === WEBHOOK MANAGEMENT (запускати вручну з Apps Script Editor) ===
+// ============================================================
+
+var WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxdqxp8PF4H7MT5aLYl0a9b2vGKjbQrmckE81-1PnVCppDyfVeKio228CuXrYkPXcDn/exec";
+
+function setWebHook() {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var response = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/setWebhook?url=" + WEBHOOK_URL);
+  Logger.log("setWebhook: " + response.getContentText());
+}
+
+function deleteWebHook() {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var response = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/deleteWebhook?drop_pending_updates=true");
+  Logger.log("deleteWebhook: " + response.getContentText());
+}
+
+function getWebHookInfo() {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var response = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/getWebhookInfo");
+  Logger.log("webhookInfo: " + response.getContentText());
 }

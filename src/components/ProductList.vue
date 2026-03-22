@@ -18,13 +18,13 @@ class="img-wrapper" @click="viewMore(product.id, product)"
 v-for="image in product.images" :key="image"
 >
               <img
-:src="require(`@/assets/img/${image}`)" class="image" />
+:src="getImageSrc(image)" class="image" />
             </el-carousel-item>
           </el-carousel>
         </div>
         <div class="item-main">
           <div>
-            <span>{{ product.title }}</span>
+            <span>{{ getTitle(product) }}</span>
           </div>
           <div class="price">
             <span>$ {{ product.price }}</span>
@@ -57,6 +57,25 @@ export default {
   },
   methods: {
     ...mapActions('cart', ['addProductToCart']),
+
+    getTitle(product) {
+      if (typeof product.title === 'object') {
+        return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
+      }
+      return product.title
+    },
+
+    getImageSrc(image) {
+      if (!image) return ''
+      if (image.startsWith('http') || image.startsWith('/')) {
+        return image
+      }
+      try {
+        return require(`@/assets/img/${image}`)
+      } catch (e) {
+        return ''
+      }
+    },
 
     viewMore: function(id, product) {
       this.$router.push({

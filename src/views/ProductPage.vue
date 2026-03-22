@@ -10,7 +10,7 @@
           <el-breadcrumb-item :to="{ path: '/shop' }">
             {{ $t('menu.shop') }}
           </el-breadcrumb-item>
-          <el-breadcrumb-item>{{ product.title }}</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ getTitle(product) }}</el-breadcrumb-item>
         </el-breadcrumb>
       </el-col>
     </el-row>
@@ -35,7 +35,7 @@
               :name="image"
             >
               <img
-:src="require(`@/assets/img/${image}`)" class="image" />
+:src="getImageSrc(image)" class="image" />
             </el-carousel-item>
           </el-carousel>
         </el-row>
@@ -46,7 +46,7 @@
           <div v-for="image in product.images"
 class="image" :key="image">
             <img
-              :src="require(`@/assets/img/${image}`)"
+              :src="getImageSrc(image)"
               @click="setActiveItem(image)"
             >
           </div>
@@ -57,40 +57,20 @@ class="image" :key="image">
         :sm="{ span: 16, offset: 4 }"
         :md="{ span: 10, offset: 0 }"
       >
-        <h2>{{ product.title }}</h2>
+        <h2>{{ getTitle(product) }}</h2>
         <el-divider />
         <h1>${{ SummaryPrice }}</h1>
         <el-checkbox-group
-          v-if="product.configurator.length > 0"
+          v-if="product.options && product.options.length > 0"
           v-model="product.checkList"
         >
           <el-checkbox
-v-model="product.checked[0]" label="0"
->
-            {{ $t('shop.product.products.1.configurator.0') }} + ${{
-              product.configurator[0]
-            }}
-          </el-checkbox>
-          <el-checkbox
-v-model="product.checked[1]" label="1"
->
-            {{ $t('shop.product.products.1.configurator.1') }} + ${{
-              product.configurator[1]
-            }}
-          </el-checkbox>
-          <el-checkbox
-v-model="product.checked[2]" label="2"
->
-            {{ $t('shop.product.products.1.configurator.2') }} + ${{
-              product.configurator[2]
-            }}
-          </el-checkbox>
-          <el-checkbox
-v-model="product.checked[3]" label="3"
->
-            {{ $t('shop.product.products.1.configurator.3') }} + ${{
-              product.configurator[3]
-            }}
+            v-for="(option, index) in product.options"
+            :key="index"
+            v-model="product.checked[index]"
+            :label="String(index)"
+          >
+            {{ getOptionName(option) }} + ${{ option.price }}
           </el-checkbox>
         </el-checkbox-group>
         <p />
@@ -107,7 +87,7 @@ v-model="product.checked[3]" label="3"
           <el-divider content-position="left">
             {{ $t('shop.product.description') }}
           </el-divider>
-          <p v-html="$t('shop.product.description-text.' + product.id)" />
+          <p v-html="getDescription(product)" />
         </div>
       </el-col>
     </el-row>
@@ -179,6 +159,39 @@ export default class ProductPage extends Vue {
 
   created() {
     this.getAllProducts()
+  }
+
+  getTitle(product) {
+    if (typeof product.title === 'object') {
+      return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
+    }
+    return product.title
+  }
+
+  getDescription(product) {
+    if (product.description && typeof product.description === 'object') {
+      return product.description[this.$i18n.locale] || product.description.ua || product.description.en || ''
+    }
+    return product.description || ''
+  }
+
+  getOptionName(option) {
+    if (option.name && typeof option.name === 'object') {
+      return option.name[this.$i18n.locale] || option.name.ua || option.name.en || ''
+    }
+    return option.name || ''
+  }
+
+  getImageSrc(image) {
+    if (!image) return ''
+    if (image.startsWith('http') || image.startsWith('/')) {
+      return image
+    }
+    try {
+      return require(`@/assets/img/${image}`)
+    } catch (e) {
+      return ''
+    }
   }
 
   setActiveItem(index) {

@@ -177,7 +177,7 @@ export default {
       }
 
       const GOOGLE_SCRIPT_URL =
-        'https://script.google.com/macros/s/AKfycbx9CBk8f2X0CZeM7ik-UVpRQ-YXYPOTA3I6mWeD0vmusJnmj0Iq0MNOFyaTybaevqn5/exec'
+        'https://script.google.com/macros/s/AKfycbxdqxp8PF4H7MT5aLYl0a9b2vGKjbQrmckE81-1PnVCppDyfVeKio228CuXrYkPXcDn/exec'
 
       axios
         .post(GOOGLE_SCRIPT_URL, JSON.stringify(contactData), {

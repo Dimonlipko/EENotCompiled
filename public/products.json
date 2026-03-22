@@ -1,0 +1,71 @@
+[
+  {
+    "id": 1,
+    "title": { "ua": "ECU для Nissan Leaf", "en": "ECU for Nissan Leaf" },
+    "price": 450,
+    "images": [
+      "/img/products/ECU_for_Nissan_Leaf2.jpg",
+      "/img/products/ECU_for_Nissan_Leaf.jpg",
+      "/img/products/ECU_for_Nissan_Leaf3.jpg",
+      "/img/products/ECU_for_Nissan_Leaf4.jpg",
+      "/img/products/ECU_for_Nissan_Leaf5.jpg"
+    ],
+    "description": {
+      "ua": "ECU для переобладнання транспортного засобу в електротранспорт \nФункції:\n- Управління мотором і інвертором Leaf по CAN-шині \n- Управління силовими контакторами \n- Управління зарядним пристроєм і DC-DC перетворювачем від Leaf \n- Робота з BMS Chevrolet Volt GEN1, GEN2. Вимірювання напруги комірок, температури батареї, балансування комірок \n- Управління швидкої зарядкою через порт Сhademo \n- Робота з датчиком струму Leaf або Volt \n- Відображення інформації на Android та Windows пристроях \n- Відображення інформації на панель приладів \n- Налаштування параметрів \n \n  <a href='https://github.com/Dimonlipko/Leaf-ECU-Configurator' target='_blank'>Документація та програмне забезпечення</a>",
+      "en": "ECU for converting a vehicle into an electric vehicle. \n Functions: \n- Controlling the motor and Leaf inverter via CAN bus \n- Controlling power contactors \n- Controlling the charger and DC-DC converter from Leaf \n- Working with Chevrolet BMS Volt GEN1, GEN2. Measuring cell voltages, battery temperature, cell balancing. \n- Controlling fast charging through the Chademo port. \n- Working with the current sensor Leaf or Volt \n- Information output on Android and Windows devices \n- Information output on the dashboard \n- Setting parameters \n \n  <a href='https://github.com/Dimonlipko/Leaf-ECU-Configurator' target='_blank'>Manual & Software</a>"
+    },
+    "options": [
+      { "name": { "ua": "підтримка датчика струму", "en": "current sensor support" }, "price": 50 },
+      { "name": { "ua": "підтримка BMS", "en": "BMS support" }, "price": 100 },
+      { "name": { "ua": "підтримка зарядного пристрою Leaf (PDM)", "en": "Leaf Charger (PDM) support" }, "price": 100 },
+      { "name": { "ua": "підтримка швидкої зарядки Сhademo", "en": "support for DC Fast Charging (CHAdeMo)" }, "price": 300 }
+    ]
+  },
+  {
+    "id": 2,
+    "title": { "ua": "Мотор Nissan Leaf", "en": "Nissan Leaf Motor" },
+    "price": 400,
+    "images": [
+      "/img/products/NissanLeafMotor3.jpeg",
+      "/img/products/NissanLeafMotor2.jpg",
+      "/img/products/NissanLeafMotor.jpg"
+    ],
+    "description": { "ua": "", "en": "" },
+    "options": []
+  },
+  {
+    "id": 3,
+    "title": { "ua": "Інвертор Nissan Leaf", "en": "Nissan Leaf Invertor" },
+    "price": 300,
+    "images": ["/img/products/NissanLeafInvertor.jpeg"],
+    "description": { "ua": "", "en": "" },
+    "options": []
+  },
+  {
+    "id": 4,
+    "title": { "ua": "Реле високовольтне Nissan Leaf", "en": "Nissan Leaf HV Relay" },
+    "price": 150,
+    "images": ["/img/products/nissanrelays.jpg"],
+    "description": { "ua": "", "en": "" },
+    "options": []
+  },
+  {
+    "id": 5,
+    "title": { "ua": "Система моніторингу BMS Chevrolet Volt", "en": "Chevrolet Volt BMS Monitoring System" },
+    "price": 250,
+    "images": ["/img/products/noImage.jpg"],
+    "description": {
+      "ua": "Пристрій для відображення карти напруг осередків і термодатчиков батареї Chevrolet Volt GEN1, GEN2 через ELM 327 на Android пристроях. Підходить для моніторингу стану другої батареї (додаткової батареї) на базі акумулятора Chevrolet Volt. Є виходи для підключення зумера або реле, для індикації або відключення другої батареї в разі проблеми з нею.",
+      "en": "A device for displaying a map of voltage cells and battery temperature sensors Chevrolet Volt GEN1, GEN2 via ELM 327 on Android devices. Suitable for monitoring the condition of the second battery (additional battery) based on the Chevrolet Volt battery. There are outputs for connecting a buzzer or relay, for indicating or disconnecting the second battery in case of a problem with it."
+    },
+    "options": []
+  },
+  {
+    "id": 6,
+    "title": { "ua": "ELM 327 1.5V", "en": "ELM 327 1.5V" },
+    "price": 15,
+    "images": ["/img/products/ELM327.jpg"],
+    "description": { "ua": "", "en": "" },
+    "options": []
+  }
+]

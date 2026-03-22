@@ -20,13 +20,13 @@
                 >
                   <div class="img-wrapper">
                     <img
-                      :src="require(`@/assets/img/${product.images[0]}`)"
+                      :src="getImageSrc(product.images[0])"
                       class="image"
                     />
                   </div>
                   <div class="productListInCart">
                     <p>
-                      {{ product.title }}: ${{ product.price }} x
+                      {{ getTitle(product) }}: ${{ product.price }} x
                       {{ product.quantity }}
                     </p>
                     <el-button
@@ -41,9 +41,7 @@
                         class="product-configurator"
                       >
                         <li>
-                          {{
-                            $t('shop.product.products.1.configurator.' + check)
-                          }}: + ${{ product.configurator[check] }}
+                          {{ getOptionLabel(product, check) }}: + ${{ product.configurator[check] }}
                         </li>
                       </ul>
                       <p>
@@ -133,11 +131,11 @@
             class="checkout-product-row"
           >
             <img
-              :src="require(`@/assets/img/${product.images[0]}`)"
+              :src="getImageSrc(product.images[0])"
               class="checkout-product-img"
             />
             <div class="checkout-product-info">
-              <span class="checkout-product-title">{{ product.title }}</span>
+              <span class="checkout-product-title">{{ getTitle(product) }}</span>
               <span class="checkout-product-price">
                 ${{ product.price }} x {{ product.quantity }}
               </span>
@@ -146,7 +144,7 @@
                   v-for="check in product.checkList"
                   :key="check"
                 >
-                  {{ $t('shop.product.products.1.configurator.' + check) }}:
+                  {{ getOptionLabel(product, check) }}:
                   +${{ product.configurator[check] }}
                 </span>
               </div>
@@ -227,6 +225,33 @@ export default {
       .catch(() => {})
   },
   methods: {
+    getTitle(product) {
+      if (typeof product.title === 'object') {
+        return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
+      }
+      return product.title
+    },
+    getImageSrc(image) {
+      if (!image) return ''
+      if (image.startsWith('http') || image.startsWith('/')) {
+        return image
+      }
+      try {
+        return require(`@/assets/img/${image}`)
+      } catch (e) {
+        return ''
+      }
+    },
+    getOptionLabel(product, check) {
+      if (product.options && product.options[check]) {
+        const opt = product.options[check]
+        if (opt.name && typeof opt.name === 'object') {
+          return opt.name[this.$i18n.locale] || opt.name.ua || opt.name.en || ''
+        }
+        return opt.name || ''
+      }
+      return ''
+    },
     openCheckout() {
       this.$refs.cartPopover.doClose()
       this.checkoutVisible = true
@@ -291,7 +316,7 @@ export default {
       }
 
       const GOOGLE_SCRIPT_URL =
-        'https://script.google.com/macros/s/AKfycbx9CBk8f2X0CZeM7ik-UVpRQ-YXYPOTA3I6mWeD0vmusJnmj0Iq0MNOFyaTybaevqn5/exec'
+        'https://script.google.com/macros/s/AKfycbxdqxp8PF4H7MT5aLYl0a9b2vGKjbQrmckE81-1PnVCppDyfVeKio228CuXrYkPXcDn/exec'
 
       axios
         .post(GOOGLE_SCRIPT_URL, JSON.stringify(orderData), {

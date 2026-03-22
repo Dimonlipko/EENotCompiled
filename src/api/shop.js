@@ -1,92 +1,72 @@
-/**
- * Mocking client-server processing
- */
-const _products = [
-  {
-    id: 1,
-    title: 'ECU for Nissan Leaf',
-    price: 450.0,
-    inventory: 2000,
-    images: [
-      'ECU_for_Nissan_Leaf2.jpg',
-      'ECU_for_Nissan_Leaf.jpg',
-      'ECU_for_Nissan_Leaf3.jpg',
-      'ECU_for_Nissan_Leaf4.jpg',
-      'ECU_for_Nissan_Leaf5.jpg',
-    ],
-    configurator: [50, 100, 100, 300],
-    checked: [false, false, false, false],
+import axios from 'axios'
+
+const PRODUCTS_URL = '/products.json'
+
+const CACHE_KEY = 'ee_products_cache'
+const CACHE_TTL = 5 * 60 * 1000 // 5 хвилин
+
+function getCachedProducts() {
+  try {
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached)
+      if (Date.now() - timestamp < CACHE_TTL) return data
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null
+}
+
+function setCachedProducts(data) {
+  try {
+    sessionStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ data, timestamp: Date.now() })
+    )
+  } catch (e) {
+    // ignore
+  }
+}
+
+function transformProduct(p) {
+  return {
+    id: p.id,
+    title: p.title,
+    price: p.price,
+    inventory: 9999,
+    images: p.images || [],
+    description: p.description || { ua: '', en: '' },
+    options: p.options || [],
+    configurator: (p.options || []).map(o => o.price),
+    checked: (p.options || []).map(() => false),
     checkList: [],
-  },
-  {
-    id: 2,
-    title: 'Nissan Leaf Motor',
-    price: 400.0,
-    inventory: 1000,
-    images: [
-      'NissanLeafMotor3.jpeg',
-      'NissanLeafMotor2.jpg',
-      'NissanLeafMotor.jpg',
-    ],
-    configurator: [],
-    checked: [false, false, false, false],
-    checkList: [],
-  },
-  {
-    id: 3,
-    title: 'Nissan Leaf Invertor',
-    price: 300.0,
-    inventory: 5000,
-    images: ['NissanLeafInvertor.jpeg'],
-    configurator: [],
-    checked: [false, false, false, false],
-    checkList: [],
-  },
-  {
-    id: 4,
-    title: 'Nissan Leaf HV Relay',
-    price: 150.0,
-    inventory: 2000,
-    images: ['nissanrelays.jpg'],
-    configurator: [],
-    checked: [false, false, false, false],
-    checkList: [],
-  },
-  {
-    id: 5,
-    title: 'Chevrolet Volt BMS Monitoring System',
-    price: 250.0,
-    inventory: 1000,
-    images: ['noImage.jpg'],
-    configurator: [],
-    checked: [false, false, false, false],
-    checkList: [],
-  },
-  {
-    id: 6,
-    title: 'ELM 327 1.5V',
-    price: 15.0,
-    inventory: 5000,
-    images: ['ELM327.jpg'],
-    configurator: [],
-    checked: [false, false, false, false],
-    checkList: [],
-  },
-]
+  }
+}
 
 export default {
-  getProducts(cb) {
-    setTimeout(() => cb(_products), 100)
-  },
-  getDefaultProducts(cb) {
-    setTimeout(() => cb(_products.slice(0, 6)), 100)
+  async getProducts(cb) {
+    const cached = getCachedProducts()
+    if (cached) {
+      cb(cached.map(transformProduct))
+      return
+    }
+
+    try {
+      const res = await axios.get(PRODUCTS_URL)
+      const products = res.data || []
+      setCachedProducts(products)
+      cb(products.map(transformProduct))
+    } catch (e) {
+      cb([])
+    }
   },
 
-  buyProducts(products, cb, errorCb) {
-    /* setTimeout(() => {
-			// simulate random checkout failure.
-			Math.random() > 0 || navigator.webdriver ? cb() : errorCb()
-		}, 100) */
+  async getDefaultProducts(cb) {
+    this.getProducts(cb)
+  },
+
+  buyProducts(products, cb) {
     cb()
   },
 }
