@@ -69,9 +69,15 @@ export default {
         title: this.getTitle(product),
         message: this.$t('shop.addedToCart'),
         type: 'success',
-        offset: 80,
+        offset: 120,
         duration: 2500,
       })
+      // Короткочасна зелена підсвітка
+      const btn = event && event.target ? event.target.closest('.btn-add-to-cart') : null
+      if (btn) {
+        btn.classList.add('btn-flash')
+        setTimeout(() => { btn.classList.remove('btn-flash'); btn.blur() }, 400)
+      }
     },
 
     getTitle(product) {

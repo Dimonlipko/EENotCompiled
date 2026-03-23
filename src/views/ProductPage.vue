@@ -342,6 +342,22 @@ export default class ProductPage extends Vue {
     } else {
       this.addProductToCart(product)
     }
+
+    // Тост
+    this.$notify({
+      title: this.getTitle(product),
+      message: String(this.$t('shop.addedToCart')),
+      type: 'success',
+      offset: 160,
+      duration: 2500,
+    })
+
+    // Короткочасна зелена підсвітка кнопки
+    const btn = this.$el.querySelector('.btn-add-to-cart')
+    if (btn) {
+      btn.classList.add('btn-flash')
+      setTimeout(() => { btn.classList.remove('btn-flash'); (btn as HTMLElement).blur() }, 400)
+    }
   }
 }
 </script>

@@ -396,11 +396,30 @@ export default {
 
 <style lang="scss" scoped>
 .custom-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
+  background-color: #fff !important;
+  color: #333 !important;
+  border: 2px solid #e0e0e0 !important;
+  border-bottom: 3px solid #00ddc0 !important;
+  border-radius: 10px !important;
+  padding: 8px 14px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  &:hover {
+    background-color: #eee !important;
+    border-color: #ccc !important;
+    border-bottom-color: #00ddc0 !important;
+  }
   &:focus {
-    color: inherit !important;
-    border-color: #dcdfe6 !important;
     background-color: #fff !important;
+    color: #333 !important;
+    border: 2px solid #e0e0e0 !important;
+    border-bottom: 3px solid #00ddc0 !important;
+  }
+  &:active {
+    background-color: rgba(0, 221, 192, 0.25) !important;
+    color: #333 !important;
+    border-color: #00ddc0 !important;
   }
 }
 .el-button {

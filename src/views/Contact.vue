@@ -81,7 +81,7 @@ method="POST" :model="form">
           </el-form-item>
           <el-form-item>
             <el-button
-type="primary" @click="submitForm()">
+class="btn-add-to-cart" @click="submitForm()">
               {{ $t("contact.form.send") }}
             </el-button>
           </el-form-item>

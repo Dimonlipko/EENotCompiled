@@ -199,6 +199,14 @@ a {
 	color: #00ddc0 !important;
 }
 
+.btn-add-to-cart.btn-flash {
+	background-color: rgba(0, 221, 192, 0.25) !important;
+	color: #333 !important;
+	border-color: #00ddc0 !important;
+	border-bottom-color: #00ddc0 !important;
+	box-shadow: 0 2px 8px rgba(0, 221, 192, 0.2);
+}
+
 /* Checkbox — зелений */
 .el-checkbox__input.is-checked .el-checkbox__inner,
 .el-checkbox__input.is-indeterminate .el-checkbox__inner {
