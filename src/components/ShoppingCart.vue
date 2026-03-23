@@ -122,6 +122,27 @@
               prefix-icon="el-icon-location"
             />
           </el-form-item>
+
+          <el-form-item :label="$t('checkout.form.delivery')">
+            <el-radio-group v-model="form.delivery">
+              <el-radio label="pickup">{{ $t('checkout.form.pickup') }}</el-radio>
+              <el-radio label="post">{{ $t('checkout.form.post') }}</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="form.delivery === 'post'">
+            <el-input
+              v-model="form.address"
+              :placeholder="$t('checkout.form.address')"
+              prefix-icon="el-icon-office-building"
+            />
+          </el-form-item>
+
+          <el-form-item :label="$t('checkout.form.payment')">
+            <el-radio-group v-model="form.payment">
+              <el-radio label="invoice">{{ $t('checkout.form.invoice') }}</el-radio>
+              <el-radio label="cod">{{ $t('checkout.form.cod') }}</el-radio>
+            </el-radio-group>
+          </el-form-item>
         </el-form>
 
         <div class="checkout-products">
@@ -196,6 +217,9 @@ export default {
         phone: '',
         email: '',
         country: '',
+        delivery: 'pickup',
+        address: '',
+        payment: 'invoice',
         website: '',
       },
       processing: false,
@@ -304,6 +328,9 @@ export default {
         phone: this.form.phone,
         email: this.form.email,
         country: this.form.country,
+        delivery: this.form.delivery,
+        address: this.form.delivery === 'post' ? this.form.address : '',
+        payment: this.form.payment,
         ip: this.clientIp,
         honeypot: this.form.website,
         timeTaken: Date.now() - this.startTime,
@@ -340,6 +367,9 @@ export default {
             this.form.phone = ''
             this.form.email = ''
             this.form.country = ''
+            this.form.delivery = 'pickup'
+            this.form.address = ''
+            this.form.payment = 'invoice'
             this.$store.dispatch('cart/clearCart')
           } else {
             this.$notify.error({
@@ -367,6 +397,11 @@ export default {
 <style lang="scss" scoped>
 .custom-icon {
   font-size: 2rem;
+  &:focus {
+    color: inherit !important;
+    border-color: #dcdfe6 !important;
+    background-color: #fff !important;
+  }
 }
 .el-button {
   padding: 6px 10px;

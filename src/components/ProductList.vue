@@ -13,6 +13,7 @@ class="img-wrapper" @click="viewMore(product.id, product)"
             :autoplay="false"
             trigger="click"
             :arrow="product.images.length <= 1 ? `never` : `hover`"
+            :indicator-position="product.images.length <= 1 ? 'none' : ''"
           >
             <el-carousel-item
 v-for="image in product.images" :key="image"
@@ -31,10 +32,9 @@ v-for="image in product.images" :key="image"
           </div>
           <div class="button-wrapper">
             <el-button
-              type="text"
-              class="button"
+              class="btn-add-to-cart"
               :disabled="!product.inventory"
-              @click="addProductToCart(product)"
+              @click="handleAddToCart(product)"
             >
               {{ $t('shop.addToCart') }}
             </el-button>
@@ -55,8 +55,24 @@ export default {
     this.$store.dispatch('products/getAllDefaultProducts')
     this.$store.dispatch('products/getAllProducts')
   },
+  data() {
+    return {
+      addedProducts: {},
+    }
+  },
   methods: {
     ...mapActions('cart', ['addProductToCart']),
+
+    handleAddToCart(product) {
+      this.addProductToCart(product)
+      this.$notify({
+        title: this.getTitle(product),
+        message: this.$t('shop.addedToCart'),
+        type: 'success',
+        offset: 80,
+        duration: 2500,
+      })
+    },
 
     getTitle(product) {
       if (typeof product.title === 'object') {
@@ -67,6 +83,9 @@ export default {
 
     getImageSrc(image) {
       if (!image) return ''
+      if (image.includes('supabase.co/storage/v1/object/public/')) {
+        return image.replace('/object/public/', '/render/image/public/') + '?width=600&height=400&resize=contain&quality=75'
+      }
       if (image.startsWith('http') || image.startsWith('/')) {
         return image
       }
@@ -123,11 +142,23 @@ export default {
 
 .img-wrapper {
   padding: 5px;
-  .el-carousel__button {
-    width: 14px;
-    height: 14px;
-    border-radius: 14px;
-    background-color: red;
+  ::v-deep .el-carousel {
+    overflow: hidden;
+  }
+  ::v-deep .el-carousel__indicators {
+    bottom: -4px;
+  }
+  ::v-deep .el-carousel__button {
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: #fff;
+    opacity: 0.6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  ::v-deep .el-carousel__indicator.is-active .el-carousel__button {
+    background-color: #00ddc0;
+    opacity: 1;
   }
   .el-carousel-item {
     position: relative;

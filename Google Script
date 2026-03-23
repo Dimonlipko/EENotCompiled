@@ -1,6 +1,6 @@
 // === GET — заглушка ===
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "2.1", timestamp: new Date().toISOString()}))
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "3.0-supabase", timestamp: new Date().toISOString()}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -249,6 +249,11 @@ function handleTelegramWebhook(update) {
       return handleNewProduct(chatId, message, caption);
     }
 
+    // Документ + /manual = оновити мануал
+    if (message.document && text.startsWith("/manual")) {
+      return handleManual(chatId, message);
+    }
+
     // Текстові команди
     if (text.startsWith("/list")) return handleList(chatId);
     if (text.startsWith("/price")) return handlePrice(chatId, text);
@@ -393,8 +398,8 @@ function handlePrice(chatId, text) {
     return successStub();
   }
 
-  supabaseUpdateProducts(products);
-  sendTelegramReply(chatId, "✅ Ціну товару #" + id + " змінено на $" + newPrice);
+  var updateResult = supabaseUpdateProducts(products);
+  sendTelegramReply(chatId, "✅ Ціну товару #" + id + " змінено на $" + newPrice + " (save: " + updateResult + ")");
   return successStub();
 }
 
@@ -461,6 +466,51 @@ function handleOptions(chatId, text) {
 
   supabaseUpdateProducts(products);
   sendTelegramReply(chatId, "✅ Опції товару #" + id + " оновлено (" + product.options.length + " шт.)");
+  return successStub();
+}
+
+// --- Оновити мануал (PDF через GitHub API) ---
+function handleManual(chatId, message) {
+  var doc = message.document;
+  if (!doc.file_name.endsWith('.pdf')) {
+    sendTelegramReply(chatId, "❌ Потрібен PDF файл");
+    return successStub();
+  }
+
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var fileInfo = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/getFile?file_id=" + doc.file_id);
+  var filePath = JSON.parse(fileInfo.getContentText()).result.file_path;
+  var fileBlob = UrlFetchApp.fetch("https://api.telegram.org/file/bot" + token + "/" + filePath);
+  var bytes = fileBlob.getBlob().getBytes();
+  var base64 = Utilities.base64Encode(bytes);
+
+  var githubToken = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  var path = "docs/Leaf_ecu_manual.pdf";
+  var headers = {"Authorization": "token " + githubToken, "User-Agent": "EE-Bot"};
+
+  var existingFile = UrlFetchApp.fetch("https://api.github.com/repos/Dimonlipko/Dimonlipko.github.io/contents/" + path, {
+    headers: headers, muteHttpExceptions: true
+  });
+  var sha = null;
+  if (existingFile.getResponseCode() === 200) {
+    sha = JSON.parse(existingFile.getContentText()).sha;
+  }
+
+  var payload = { message: "Update manual via Telegram bot", content: base64 };
+  if (sha) payload.sha = sha;
+
+  var response = UrlFetchApp.fetch("https://api.github.com/repos/Dimonlipko/Dimonlipko.github.io/contents/" + path, {
+    method: "PUT",
+    headers: {"Authorization": "token " + githubToken, "User-Agent": "EE-Bot", "Content-Type": "application/json"},
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  if (response.getResponseCode() === 200 || response.getResponseCode() === 201) {
+    sendTelegramReply(chatId, "✅ Мануал оновлено!\nhttps://electricengines.com.ua/docs/Leaf_ecu_manual.pdf");
+  } else {
+    sendTelegramReply(chatId, "❌ Помилка: " + response.getResponseCode());
+  }
   return successStub();
 }
 
@@ -614,7 +664,8 @@ function showFullHelp(chatId) {
     "/price ID ЦІНА — змінити ціну\n" +
     "/delete ID — видалити товар\n" +
     "/options ID назва1:ціна1;назва2:ціна2\n" +
-    "/help — головне меню";
+    "/help — головне меню\n\n" +
+    "*Мануал:*\nНадішли PDF з підписом `/manual`";
   var keyboard = {
     inline_keyboard: [
       [{ text: "◀️ Назад", callback_data: "menu_back" }]
@@ -661,19 +712,24 @@ function supabaseGetProducts() {
 }
 
 function supabaseUpdateProducts(products) {
+  var key = getSupabaseKey();
   var url = SUPABASE_URL + "/storage/v1/object/" + SUPABASE_BUCKET + "/products.json";
   var json = JSON.stringify(products, null, 2);
   var response = UrlFetchApp.fetch(url, {
     method: "PUT",
     headers: {
-      "Authorization": "Bearer " + getSupabaseKey(),
+      "Authorization": "Bearer " + key,
       "Content-Type": "application/json",
       "x-upsert": "true"
     },
     payload: json,
     muteHttpExceptions: true
   });
-  return response.getResponseCode() === 200;
+  var code = response.getResponseCode();
+  if (code !== 200) {
+    writeLog("SUPABASE ERROR", "Update failed: " + code + " " + response.getContentText().substring(0, 200));
+  }
+  return code === 200;
 }
 
 function uploadTelegramPhotoToSupabase(fileId, filename) {

@@ -3,7 +3,7 @@ import axios from 'axios'
 const PRODUCTS_URL = 'https://fkmolbxcicwishbtmqbs.supabase.co/storage/v1/object/public/product/products.json'
 
 const CACHE_KEY = 'ee_products_cache'
-const CACHE_TTL = 5 * 60 * 1000 // 5 хвилин
+const CACHE_TTL = 0 // без кешу — завжди свіжі дані з Supabase
 
 function getCachedProducts() {
   try {

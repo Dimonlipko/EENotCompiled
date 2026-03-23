@@ -18,20 +18,18 @@ export default class HeaderComponent extends Vue {
 type="flex" justify="center"
 align="middle"
 >
-      <el-col :span="12">
-        © Copyright {{ year }} ElectricEngines - All Rights Reserved
-      </el-col>
-      <el-col :span="6">
-        <a href="https://www.facebook.com/ElectricEnginesCar">
-          <font-awesome-icon
-:icon="['fab', 'facebook']" size="3x"
-/>
-        </a>
-        <a href="https://www.instagram.com/electric_engines">
-          <font-awesome-icon
-:icon="['fab', 'instagram']" size="3x"
-/>
-        </a>
+      <el-col :span="24" class="footer-content">
+        <div class="footer-text">
+          © Copyright {{ year }} ElectricEngines - All Rights Reserved
+        </div>
+        <div class="footer-social">
+          <a href="https://www.facebook.com/ElectricEnginesCar" target="_blank">
+            <font-awesome-icon :icon="['fab', 'facebook']" size="2x" />
+          </a>
+          <a href="https://www.instagram.com/electric_engines" target="_blank">
+            <font-awesome-icon :icon="['fab', 'instagram']" size="2x" />
+          </a>
+        </div>
       </el-col>
     </el-row>
   </el-footer>
@@ -40,21 +38,28 @@ align="middle"
 <style lang="scss" scoped>
 .el-footer {
   flex-shrink: 0;
-  text-align: center;
   background-color: #333;
   color: white;
+  padding: 15px 0;
+}
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.footer-text {
+  font-size: 14px;
+  opacity: 0.8;
+}
+.footer-social {
   a {
     text-decoration: none;
     color: white;
+    margin: 0 8px;
+    transition: color 0.2s;
   }
-  svg {
-    padding: 10px;
-  }
-  .fa-facebook:hover {
-    color: rgb(112, 162, 255);
-  }
-  .fa-instagram:hover {
-    color: rgb(255, 112, 112);
-  }
+  .fa-facebook:hover { color: rgb(112, 162, 255); }
+  .fa-instagram:hover { color: rgb(255, 112, 112); }
 }
 </style>

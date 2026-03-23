@@ -35,7 +35,11 @@
               :name="image"
             >
               <img
-:src="getImageSrc(image)" class="image" />
+                :src="getImageSrc(image)"
+                class="image"
+                style="cursor: pointer"
+                @click="openLightbox(image)"
+              />
             </el-carousel-item>
           </el-carousel>
         </el-row>
@@ -51,6 +55,7 @@ class="image" :key="image">
             >
           </div>
         </el-row>
+
       </el-col>
       <el-col
         :xs="{ span: 24, offset: 0 }"
@@ -75,8 +80,7 @@ class="image" :key="image">
         </el-checkbox-group>
         <p />
         <el-button
-          type="text"
-          class="button"
+          class="btn-add-to-cart"
           :disabled="!product.inventory"
           @click="addThisProductToCart(product)"
         >
@@ -88,6 +92,23 @@ class="image" :key="image">
             {{ $t('shop.product.description') }}
           </el-divider>
           <p v-html="getDescription(product)" />
+
+          <div v-if="product.id === 1" class="product-actions">
+            <a
+              href="/docs/Leaf_ecu_manual.pdf"
+              target="_blank"
+              class="btn-product-action"
+            >
+              <i class="el-icon-document" /> {{ $t('shop.product.documentation') }}
+            </a>
+            <a
+              href="https://diag.electricengines.com.ua/"
+              target="_blank"
+              class="btn-product-action"
+            >
+              <i class="el-icon-setting" /> {{ $t('shop.product.configurator') }}
+            </a>
+          </div>
         </div>
       </el-col>
     </el-row>
@@ -110,6 +131,10 @@ const Cart = namespace('cart')
   },
 })
 export default class ProductPage extends Vue {
+  lightboxVisible = false
+  lightboxImage = ''
+  lightboxIndex = 0
+
   @Products.Getter getById: any
   @Products.Getter getShopSize: any
   @Products.Getter getConfigCombinations: any
@@ -196,6 +221,78 @@ export default class ProductPage extends Vue {
 
   setActiveItem(index) {
     this.myCarousel.setActiveItem(index)
+  }
+
+  lightboxEl: any = null
+
+  openLightbox(image) {
+    this.lightboxIndex = this.product.images.indexOf(image)
+    this.lightboxVisible = true
+    document.body.style.overflow = 'hidden'
+    this.renderLightbox()
+  }
+
+  closeLightbox() {
+    this.lightboxVisible = false
+    document.body.style.overflow = ''
+    if (this.lightboxEl) {
+      document.body.removeChild(this.lightboxEl)
+      this.lightboxEl = null
+    }
+  }
+
+  lightboxPrev() {
+    this.lightboxIndex = (this.lightboxIndex - 1 + this.product.images.length) % this.product.images.length
+    this.renderLightbox()
+  }
+
+  lightboxNext() {
+    this.lightboxIndex = (this.lightboxIndex + 1) % this.product.images.length
+    this.renderLightbox()
+  }
+
+  renderLightbox() {
+    if (this.lightboxEl) document.body.removeChild(this.lightboxEl)
+
+    const el = document.createElement('div')
+    el.className = 'lightbox'
+    el.onclick = () => this.closeLightbox()
+
+    const img = document.createElement('img')
+    img.src = this.getImageSrc(this.product.images[this.lightboxIndex])
+    img.onclick = (e) => e.stopPropagation()
+    el.appendChild(img)
+
+    if (this.product.images.length > 1) {
+      const prev = document.createElement('button')
+      prev.className = 'lightbox-prev'
+      prev.innerHTML = '&#8249;'
+      prev.onclick = (e) => { e.stopPropagation(); this.lightboxPrev() }
+      el.appendChild(prev)
+
+      const next = document.createElement('button')
+      next.className = 'lightbox-next'
+      next.innerHTML = '&#8250;'
+      next.onclick = (e) => { e.stopPropagation(); this.lightboxNext() }
+      el.appendChild(next)
+    }
+
+    const close = document.createElement('button')
+    close.className = 'lightbox-close'
+    close.innerHTML = '&times;'
+    close.onclick = () => this.closeLightbox()
+    el.appendChild(close)
+
+    document.body.appendChild(el)
+    this.lightboxEl = el
+  }
+
+  beforeDestroy() {
+    if (this.lightboxEl) {
+      document.body.removeChild(this.lightboxEl)
+      this.lightboxEl = null
+    }
+    document.body.style.overflow = ''
   }
 
   contains(arr, arr2) {
@@ -294,9 +391,111 @@ export default class ProductPage extends Vue {
 .description {
   margin-top: 60px;
   white-space: pre-line;
+  color: #555;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-product-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background-color: #f8f8f8;
+  color: #333;
+  border: 2px solid #e0e0e0;
+  border-bottom: 3px solid #00ddc0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  &:hover {
+    background-color: #eee;
+    border-color: #ccc;
+    border-bottom-color: #00ddc0;
+    color: #333;
+  }
+  &:active {
+    background-color: #00ddc0;
+    border-color: #00ddc0;
+  }
+  i {
+    font-size: 16px;
+  }
 }
 
 .el-checkbox {
   display: block;
+  ::v-deep .el-checkbox__label {
+    font-weight: 400;
+  }
 }
+
+
+
+</style>
+<style lang="scss">
+.lightbox {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(4px);
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    user-select: none;
+  }
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 36px;
+  cursor: pointer;
+  line-height: 1;
+  z-index: 100000;
+  &:hover { color: #00ddc0; }
+}
+
+.lightbox-prev,
+.lightbox-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  padding: 15px 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  z-index: 100000;
+  &:hover { background: rgba(0, 221, 192, 0.3); }
+}
+
+.lightbox-prev { left: 15px; }
+.lightbox-next { right: 15px; }
 </style>

@@ -68,15 +68,6 @@ const actions = {
       if (!cartItem) {
         commit('pushProductToCart', { id: product.id })
 
-        // Notify user about the added product
-        const title =
-          typeof product.title === 'object'
-            ? product.title[i18n.locale] || product.title.ua || product.title.en || ''
-            : product.title
-        const message = i18n.t('notifications.addedToCart', {
-          title,
-        })
-        dispatch('notifySuccess', message)
       } else {
         commit('incrementItemQuantity', cartItem)
       }
