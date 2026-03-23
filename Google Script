@@ -283,14 +283,14 @@ function handleNewProduct(chatId, message, caption) {
 
   // Завантажити фото
   var fileId = message.photo[message.photo.length - 1].file_id; // найбільша якість
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var newId = 1;
   for (var i = 0; i < products.length; i++) {
     if (products[i].id >= newId) newId = products[i].id + 1;
   }
 
   var filename = "product-" + newId + "-1.jpg";
-  var imageUrl = uploadTelegramPhotoToGithub(fileId, filename);
+  var imageUrl = uploadTelegramPhotoToSupabase(fileId, filename);
 
   if (!imageUrl) {
     sendTelegramReply(chatId, "❌ Помилка завантаження фото.");
@@ -307,7 +307,7 @@ function handleNewProduct(chatId, message, caption) {
   };
 
   products.push(newProduct);
-  githubUpdateProducts(products);
+  supabaseUpdateProducts(products);
 
   sendTelegramReply(chatId, "✅ Товар #" + newId + " додано!\n" + titleUA + " — $" + price);
   return successStub();
@@ -323,7 +323,7 @@ function handleAddPhoto(chatId, message, caption) {
     return successStub();
   }
 
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var product = null;
   for (var i = 0; i < products.length; i++) {
     if (products[i].id === id) { product = products[i]; break; }
@@ -336,7 +336,7 @@ function handleAddPhoto(chatId, message, caption) {
   var fileId = message.photo[message.photo.length - 1].file_id;
   var photoNum = product.images.length + 1;
   var filename = "product-" + id + "-" + photoNum + ".jpg";
-  var imageUrl = uploadTelegramPhotoToGithub(fileId, filename);
+  var imageUrl = uploadTelegramPhotoToSupabase(fileId, filename);
 
   if (!imageUrl) {
     sendTelegramReply(chatId, "❌ Помилка завантаження фото.");
@@ -344,7 +344,7 @@ function handleAddPhoto(chatId, message, caption) {
   }
 
   product.images.push(imageUrl);
-  githubUpdateProducts(products);
+  supabaseUpdateProducts(products);
 
   sendTelegramReply(chatId, "✅ Фото додано до товару #" + id + " (всього: " + product.images.length + ")");
   return successStub();
@@ -352,7 +352,7 @@ function handleAddPhoto(chatId, message, caption) {
 
 // --- Список товарів ---
 function handleList(chatId) {
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   if (products.length === 0) {
     sendTelegramReply(chatId, "📦 Магазин порожній.");
     return successStub();
@@ -379,7 +379,7 @@ function handlePrice(chatId, text) {
     return successStub();
   }
 
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var found = false;
   for (var i = 0; i < products.length; i++) {
     if (products[i].id === id) {
@@ -393,7 +393,7 @@ function handlePrice(chatId, text) {
     return successStub();
   }
 
-  githubUpdateProducts(products);
+  supabaseUpdateProducts(products);
   sendTelegramReply(chatId, "✅ Ціну товару #" + id + " змінено на $" + newPrice);
   return successStub();
 }
@@ -407,14 +407,14 @@ function handleDelete(chatId, text) {
     return successStub();
   }
 
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var newProducts = products.filter(function(p) { return p.id !== id; });
   if (newProducts.length === products.length) {
     sendTelegramReply(chatId, "❌ Товар #" + id + " не знайдено.");
     return successStub();
   }
 
-  githubUpdateProducts(newProducts);
+  supabaseUpdateProducts(newProducts);
   sendTelegramReply(chatId, "🗑 Товар #" + id + " видалено.");
   return successStub();
 }
@@ -437,7 +437,7 @@ function handleOptions(chatId, text) {
   var id = parseInt(match[1]);
   var optionsStr = match[2];
 
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var product = null;
   for (var i = 0; i < products.length; i++) {
     if (products[i].id === id) { product = products[i]; break; }
@@ -459,7 +459,7 @@ function handleOptions(chatId, text) {
     }
   }
 
-  githubUpdateProducts(products);
+  supabaseUpdateProducts(products);
   sendTelegramReply(chatId, "✅ Опції товару #" + id + " оновлено (" + product.options.length + " шт.)");
   return successStub();
 }
@@ -513,7 +513,7 @@ function handleCallbackQuery(query) {
 }
 
 function showPriceHelp(chatId) {
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var text = "💰 *Змінити ціну:*\n\nНадішли команду:\n`/price ID ЦІНА`\n\n";
   if (products.length > 0) {
     text += "*Товари:*\n";
@@ -527,7 +527,7 @@ function showPriceHelp(chatId) {
 }
 
 function showDeleteHelp(chatId) {
-  var products = githubGetProducts();
+  var products = supabaseGetProducts();
   var text = "🗑 *Видалити товар:*\n\nНадішли команду:\n`/delete ID`\n\n";
   if (products.length > 0) {
     text += "*Товари:*\n";
@@ -641,85 +641,67 @@ function sendTelegramKeyboard(chatId, text, replyMarkup) {
 }
 
 // ============================================================
-// === GITHUB API ===
+// === SUPABASE STORAGE API ===
 // ============================================================
 
-var GITHUB_REPO = "Dimonlipko/Dimonlipko.github.io";
-var PRODUCTS_PATH = "products.json";
-var IMAGES_DIR = "img/products/";
+var SUPABASE_URL = "https://fkmolbxcicwishbtmqbs.supabase.co";
+var SUPABASE_BUCKET = "product";
 
-function getGithubHeaders() {
-  var token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
-  return {
-    "Authorization": "token " + token,
-    "Accept": "application/vnd.github.v3+json",
-    "User-Agent": "EE-Bot"
-  };
+function getSupabaseKey() {
+  return PropertiesService.getScriptProperties().getProperty('SUPABASE_SERVICE_KEY');
 }
 
-function githubGetFile(path) {
-  var url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/" + path;
-  var response = UrlFetchApp.fetch(url, {
-    method: "GET",
-    headers: getGithubHeaders(),
-    muteHttpExceptions: true
-  });
+function supabaseGetProducts() {
+  var url = SUPABASE_URL + "/storage/v1/object/public/" + SUPABASE_BUCKET + "/products.json?t=" + Date.now();
+  var response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
   if (response.getResponseCode() === 200) {
     return JSON.parse(response.getContentText());
   }
-  return null;
+  return [];
 }
 
-function githubPutFile(path, contentBase64, sha, commitMessage) {
-  var url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/" + path;
-  var payload = {
-    message: commitMessage,
-    content: contentBase64
-  };
-  if (sha) payload.sha = sha;
-
+function supabaseUpdateProducts(products) {
+  var url = SUPABASE_URL + "/storage/v1/object/" + SUPABASE_BUCKET + "/products.json";
+  var json = JSON.stringify(products, null, 2);
   var response = UrlFetchApp.fetch(url, {
     method: "PUT",
-    headers: getGithubHeaders(),
-    payload: JSON.stringify(payload),
+    headers: {
+      "Authorization": "Bearer " + getSupabaseKey(),
+      "Content-Type": "application/json",
+      "x-upsert": "true"
+    },
+    payload: json,
     muteHttpExceptions: true
   });
-  return response.getResponseCode() === 200 || response.getResponseCode() === 201;
+  return response.getResponseCode() === 200;
 }
 
-function githubGetProducts() {
-  var file = githubGetFile(PRODUCTS_PATH);
-  if (!file) return [];
-  var content = Utilities.newBlob(Utilities.base64Decode(file.content)).getDataAsString();
-  return JSON.parse(content);
-}
-
-function githubUpdateProducts(products) {
-  var file = githubGetFile(PRODUCTS_PATH);
-  var sha = file ? file.sha : null;
-  var json = JSON.stringify(products, null, 2);
-  var base64 = Utilities.base64Encode(Utilities.newBlob(json).getBytes());
-  return githubPutFile(PRODUCTS_PATH, base64, sha, "Update products via Telegram bot");
-}
-
-function uploadTelegramPhotoToGithub(fileId, filename) {
+function uploadTelegramPhotoToSupabase(fileId, filename) {
   var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
 
-  // Отримати file_path
+  // Отримати file_path від Telegram
   var fileInfo = UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/getFile?file_id=" + fileId);
   var filePath = JSON.parse(fileInfo.getContentText()).result.file_path;
 
-  // Завантажити blob
+  // Завантажити blob з Telegram
   var fileBlob = UrlFetchApp.fetch("https://api.telegram.org/file/bot" + token + "/" + filePath);
   var bytes = fileBlob.getBlob().getBytes();
-  var base64 = Utilities.base64Encode(bytes);
 
-  // Завантажити на GitHub
-  var path = IMAGES_DIR + filename;
-  var success = githubPutFile(path, base64, null, "Add product image: " + filename);
+  // Завантажити на Supabase Storage
+  var url = SUPABASE_URL + "/storage/v1/object/" + SUPABASE_BUCKET + "/images/" + filename;
+  var response = UrlFetchApp.fetch(url, {
+    method: "PUT",
+    headers: {
+      "Authorization": "Bearer " + getSupabaseKey(),
+      "Content-Type": "image/jpeg",
+      "x-upsert": "true"
+    },
+    payload: bytes,
+    muteHttpExceptions: true
+  });
 
-  if (success) {
-    return "/" + path; // відносний URL для сайту
+  if (response.getResponseCode() === 200) {
+    return SUPABASE_URL + "/storage/v1/object/public/" + SUPABASE_BUCKET + "/images/" + filename;
   }
   return null;
 }
