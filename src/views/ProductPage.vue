@@ -228,7 +228,7 @@ export default class ProductPage extends Vue {
       if (!doWeHaveConfig) {
         const newProduct = {
           id: this.shopSize + 1,
-          title: product.title,
+          title: this.getTitle(product),
           price: product.price,
           inventory: product.inventory,
           images: product.images,

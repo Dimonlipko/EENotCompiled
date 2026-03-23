@@ -309,7 +309,7 @@ export default {
         timeTaken: Date.now() - this.startTime,
         total: this.total,
         products: this.products.map(product => ({
-          title: product.title,
+          title: this.getTitle(product),
           price: product.price,
           quantity: product.quantity,
         })),

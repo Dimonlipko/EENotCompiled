@@ -13,7 +13,9 @@ function doPost(e) {
 
     // --- TELEGRAM WEBHOOK ---
     if (data.update_id !== undefined) {
-      if (data.message) {
+      if (data.callback_query) {
+        try { handleCallbackQuery(data.callback_query); } catch(ex) {}
+      } else if (data.message) {
         try { handleTelegramWebhook(data); } catch(ex) {}
       }
       return HtmlService.createHtmlOutput();
@@ -464,17 +466,178 @@ function handleOptions(chatId, text) {
 
 // --- Допомога ---
 function handleHelp(chatId) {
-  var text = "🤖 *Команди бота:*\n\n" +
-    "📸 *Фото + підпис* — додати товар\n" +
-    "Формат: `Title_UA | Title_EN | Price | Desc_UA | Desc_EN`\n\n" +
-    "📸 *Фото + /addphoto ID* — додати фото до товару\n\n" +
-    "📋 /list — список товарів\n" +
-    "💰 /price ID ЦІНА — змінити ціну\n" +
-    "🗑 /delete ID — видалити товар\n" +
-    "⚙️ /options ID назва1:ціна1;назва2:ціна2 — додати опції\n" +
-    "❓ /help — ця довідка";
-  sendTelegramReply(chatId, text);
+  var text = "🤖 *Electric Engines — Адмін панель*\n\nОберіть розділ:";
+  var keyboard = {
+    inline_keyboard: [
+      [
+        { text: "📦 Асортимент", callback_data: "menu_products" },
+        { text: "📋 Замовлення", callback_data: "menu_orders" }
+      ],
+      [
+        { text: "❓ Довідка", callback_data: "menu_help_full" }
+      ]
+    ]
+  };
+  sendTelegramKeyboard(chatId, text, keyboard);
   return successStub();
+}
+
+// ============================================================
+// === CALLBACK QUERY (кнопки меню) ===
+// ============================================================
+
+function handleCallbackQuery(query) {
+  var chatId = String(query.message.chat.id);
+  var adminChatId = String(PropertiesService.getScriptProperties().getProperty('CHAT_ID')).trim();
+  if (chatId !== adminChatId) return;
+
+  var data = query.data;
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+
+  // Відповісти на callback щоб прибрати "годинник" з кнопки
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + token + "/answerCallbackQuery", {
+    method: "POST",
+    contentType: "application/json",
+    payload: JSON.stringify({ callback_query_id: query.id }),
+    muteHttpExceptions: true
+  });
+
+  if (data === "menu_products") return showProductsMenu(chatId);
+  if (data === "menu_orders") return showOrdersMenu(chatId);
+  if (data === "menu_help_full") return showFullHelp(chatId);
+  if (data === "menu_back") return handleHelp(chatId);
+  if (data === "cmd_list") return handleList(chatId);
+  if (data === "menu_help_add") return showAddHelp(chatId);
+  if (data === "menu_help_price") return showPriceHelp(chatId);
+  if (data === "menu_help_delete") return showDeleteHelp(chatId);
+}
+
+function showPriceHelp(chatId) {
+  var products = githubGetProducts();
+  var text = "💰 *Змінити ціну:*\n\nНадішли команду:\n`/price ID ЦІНА`\n\n";
+  if (products.length > 0) {
+    text += "*Товари:*\n";
+    for (var i = 0; i < products.length; i++) {
+      text += "#" + products[i].id + " — " + products[i].title.ua + " — $" + products[i].price + "\n";
+    }
+    text += "\nПриклад: `/price " + products[0].id + " 500`";
+  }
+  var keyboard = { inline_keyboard: [[{ text: "◀️ Назад", callback_data: "menu_products" }]] };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function showDeleteHelp(chatId) {
+  var products = githubGetProducts();
+  var text = "🗑 *Видалити товар:*\n\nНадішли команду:\n`/delete ID`\n\n";
+  if (products.length > 0) {
+    text += "*Товари:*\n";
+    for (var i = 0; i < products.length; i++) {
+      text += "#" + products[i].id + " — " + products[i].title.ua + "\n";
+    }
+    text += "\nПриклад: `/delete " + products[0].id + "`";
+  }
+  var keyboard = { inline_keyboard: [[{ text: "◀️ Назад", callback_data: "menu_products" }]] };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function showAddHelp(chatId) {
+  var text = "📸 *Додати товар:*\n\n" +
+    "Надішли фото з підписом:\n" +
+    "`Назва UA | Назва EN | Ціна`\n\n" +
+    "Приклад:\n" +
+    "`Мотор Leaf | Leaf Motor | 400`\n\n" +
+    "Можна додати опис:\n" +
+    "`Назва UA | Назва EN | Ціна | Опис UA | Опис EN`";
+  var keyboard = {
+    inline_keyboard: [
+      [{ text: "◀️ Назад", callback_data: "menu_products" }]
+    ]
+  };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function showProductsMenu(chatId) {
+  var text = "📦 *Асортимент*\n\nОберіть дію:";
+  var keyboard = {
+    inline_keyboard: [
+      [{ text: "📋 Список товарів", callback_data: "cmd_list" }],
+      [{ text: "➕ Додати товар", callback_data: "menu_help_add" }],
+      [
+        { text: "💰 Змінити ціну", callback_data: "menu_help_price" },
+        { text: "🗑 Видалити", callback_data: "menu_help_delete" }
+      ],
+      [{ text: "◀️ Назад", callback_data: "menu_back" }]
+    ]
+  };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function showOrdersMenu(chatId) {
+  // Колонки: Дата | Ім'я | Телефон | Email | Товари | Країна | Сума | IP
+  var text = "📋 *Останні замовлення:*\n\n";
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Лист1");
+    if (sheet && sheet.getLastRow() > 0) {
+      var lastRow = sheet.getLastRow();
+      var startRow = Math.max(1, lastRow - 4);
+      var rows = sheet.getRange(startRow, 1, lastRow - startRow + 1, 8).getValues();
+      for (var i = rows.length - 1; i >= 0; i--) {
+        var r = rows[i];
+        var date = r[0] ? Utilities.formatDate(new Date(r[0]), "Europe/Kiev", "dd.MM HH:mm") : "?";
+        var name = r[1] || "?";
+        var phone = r[2] || "";
+        var products = r[4] || "—";
+        var total = r[6] || 0;
+        text += "📅 " + date + "\n👤 " + name + " | 📞 " + phone + "\n🛒 " + products + "\n💰 *$" + total + "*\n\n";
+      }
+    } else {
+      text += "Замовлень поки немає.";
+    }
+  } catch(ex) {
+    text += "Помилка: " + ex.toString();
+  }
+
+  var keyboard = {
+    inline_keyboard: [
+      [{ text: "◀️ Назад", callback_data: "menu_back" }]
+    ]
+  };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function showFullHelp(chatId) {
+  var text = "📖 *Довідка:*\n\n" +
+    "*Додати товар:*\nНадішли фото з підписом:\n`Title_UA | Title_EN | Price`\n\n" +
+    "*Додати фото:*\nНадішли фото з підписом:\n`/addphoto ID`\n\n" +
+    "*Команди:*\n" +
+    "/list — список товарів\n" +
+    "/price ID ЦІНА — змінити ціну\n" +
+    "/delete ID — видалити товар\n" +
+    "/options ID назва1:ціна1;назва2:ціна2\n" +
+    "/help — головне меню";
+  var keyboard = {
+    inline_keyboard: [
+      [{ text: "◀️ Назад", callback_data: "menu_back" }]
+    ]
+  };
+  sendTelegramKeyboard(chatId, text, keyboard);
+}
+
+function sendTelegramKeyboard(chatId, text, replyMarkup) {
+  var token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_TOKEN');
+  var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  var payload = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: "Markdown",
+    reply_markup: JSON.stringify(replyMarkup)
+  };
+  UrlFetchApp.fetch(url, {
+    method: "POST",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
 }
 
 // ============================================================

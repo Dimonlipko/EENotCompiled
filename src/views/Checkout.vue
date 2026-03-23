@@ -58,7 +58,7 @@ type="flex" :key="product.id">
             </el-col>
             <el-col :span="15">
               <div class="productListInCart">
-                <h2>{{ product.title }}</h2>
+                <h2>{{ getTitle(product) }}</h2>
                 <p>${{ product.price }} x {{ product.quantity }}</p>
                 <div v-if="product.totalPrice">
                   <h5>Additional config:</h5>
@@ -148,6 +148,12 @@ export default {
       .catch(() => {})
   },
   methods: {
+    getTitle(product) {
+      if (typeof product.title === 'object') {
+        return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
+      }
+      return product.title
+    },
     submitForm() {
       if (
         !this.form.name ||
@@ -199,7 +205,7 @@ export default {
 
         total: this.total,
         products: this.products.map(product => ({
-          title: product.title,
+          title: this.getTitle(product),
           price: product.price,
           quantity: product.quantity,
         })),

@@ -53,7 +53,7 @@ export default {
     }
 
     try {
-      const res = await axios.get(PRODUCTS_URL)
+      const res = await axios.get(PRODUCTS_URL + '?t=' + Date.now())
       const products = res.data || []
       setCachedProducts(products)
       cb(products.map(transformProduct))
