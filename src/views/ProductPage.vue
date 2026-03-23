@@ -344,7 +344,7 @@ export default class ProductPage extends Vue {
     }
 
     // Тост
-    this.$notify({
+    ;(this as any).$notify({
       title: this.getTitle(product),
       message: String(this.$t('shop.addedToCart')),
       type: 'success',
