@@ -76,128 +76,250 @@
 
       <!-- Checkout Dialog -->
       <el-dialog
-        :title="$t('checkout.title')"
+        :title="checkoutStep === 1 ? $t('checkout.title') : $t('checkout.paymentDetails.title')"
         :visible.sync="checkoutVisible"
         :width="dialogWidth"
         :close-on-click-modal="false"
         :append-to-body="true"
         custom-class="checkout-dialog"
       >
-        <el-form ref="checkoutForm" :model="form">
-          <el-form-item class="antispam-field">
-            <el-input
-              v-model="form.website"
-              name="url_confirm"
-              autocomplete="nope"
-              tabindex="-1"
-              aria-hidden="true"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-input
-              v-model="form.name"
-              :placeholder="$t('contact.form.name')"
-              prefix-icon="el-icon-user"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-input
-              v-model="form.phone"
-              :placeholder="$t('contact.form.phone')"
-              prefix-icon="el-icon-phone"
-              @input="form.phone = form.phone.replace(/[^0-9+\-() ]/g, '')"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-input
-              v-model="form.email"
-              :placeholder="$t('contact.form.email')"
-              prefix-icon="el-icon-message"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-input
-              v-model="form.country"
-              :placeholder="$t('checkout.form.country')"
-              prefix-icon="el-icon-location"
-            />
-          </el-form-item>
+        <!-- Step 1: Order Form -->
+        <div v-show="checkoutStep === 1">
+          <el-form ref="checkoutForm" :model="form">
+            <el-form-item class="antispam-field">
+              <el-input
+                v-model="form.website"
+                name="url_confirm"
+                autocomplete="nope"
+                tabindex="-1"
+                aria-hidden="true"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="form.name"
+                :placeholder="$t('contact.form.name')"
+                prefix-icon="el-icon-user"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="form.phone"
+                :placeholder="$t('contact.form.phone')"
+                prefix-icon="el-icon-phone"
+                @input="form.phone = form.phone.replace(/[^0-9+\-() ]/g, '')"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-input
+                v-model="form.email"
+                :placeholder="$t('contact.form.email')"
+                prefix-icon="el-icon-message"
+              />
+            </el-form-item>
 
-          <el-form-item :label="$t('checkout.form.delivery')">
-            <el-radio-group v-model="form.delivery">
-              <el-radio label="pickup">{{ $t('checkout.form.pickup') }}</el-radio>
-              <el-radio label="post">{{ $t('checkout.form.post') }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item v-if="form.delivery === 'post'">
-            <el-input
-              v-model="form.address"
-              :placeholder="$t('checkout.form.address')"
-              prefix-icon="el-icon-office-building"
-            />
-          </el-form-item>
+            <el-form-item :label="$t('checkout.form.country')">
+              <el-radio-group v-model="form.country">
+                <el-radio label="UA">{{ $t('checkout.form.ukraine') }}</el-radio>
+                <el-radio label="EU">{{ $t('checkout.form.europe') }}</el-radio>
+                <el-radio label="US">{{ $t('checkout.form.usa') }}</el-radio>
+              </el-radio-group>
+            </el-form-item>
 
-          <el-form-item :label="$t('checkout.form.payment')">
-            <el-radio-group v-model="form.payment">
-              <el-radio label="invoice">{{ $t('checkout.form.invoice') }}</el-radio>
-              <el-radio label="cod">{{ $t('checkout.form.cod') }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-        </el-form>
+            <!-- Delivery: Ukraine -->
+            <template v-if="form.country === 'UA'">
+              <el-form-item :label="$t('checkout.form.delivery')">
+                <el-radio-group v-model="form.delivery">
+                  <el-radio label="pickup">{{ $t('checkout.form.pickup') }}</el-radio>
+                  <el-radio label="novaposhta">{{ $t('checkout.form.novaposhta') }}</el-radio>
+                  <el-radio label="ukrposhta">{{ $t('checkout.form.ukrposhta') }}</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <!-- Nova Poshta: city + warehouse autocomplete -->
+              <template v-if="form.delivery === 'novaposhta'">
+                <el-form-item :label="$t('checkout.form.city')">
+                  <el-autocomplete
+                    v-model="npCityQuery"
+                    :fetch-suggestions="npCityFetch"
+                    :placeholder="$t('checkout.form.cityPlaceholder')"
+                    prefix-icon="el-icon-location"
+                    :loading="npCityLoading"
+                    :trigger-on-focus="false"
+                    @select="handleCitySelect"
+                    value-key="name"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+                <el-form-item v-if="npSelectedCity" :label="$t('checkout.form.branch')">
+                  <el-autocomplete
+                    v-model="npWarehouseQuery"
+                    :fetch-suggestions="npWarehouseFetch"
+                    :placeholder="$t('checkout.form.branchPlaceholder')"
+                    prefix-icon="el-icon-office-building"
+                    :loading="npWarehouseLoading"
+                    :trigger-on-focus="true"
+                    @select="handleWarehouseSelect"
+                    value-key="name"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </template>
+              <!-- Ukrposhta: manual input -->
+              <el-form-item v-if="form.delivery === 'ukrposhta'">
+                <el-input
+                  v-model="form.branch"
+                  :placeholder="$t('checkout.form.ukrposhtaAddress')"
+                  prefix-icon="el-icon-office-building"
+                />
+              </el-form-item>
+            </template>
 
-        <div class="checkout-products">
-          <div
-            v-for="product in products"
-            :key="product.id"
-            class="checkout-product-row"
-          >
-            <img
-              :src="getImageSrc(product.images[0])"
-              class="checkout-product-img"
-            />
-            <div class="checkout-product-info">
-              <span class="checkout-product-title">{{ getTitle(product) }}</span>
-              <span class="checkout-product-price">
-                ${{ product.price }} x {{ product.quantity }}
-              </span>
-              <div v-if="product.totalPrice" class="checkout-product-config">
-                <span
-                  v-for="check in product.checkList"
-                  :key="check"
-                >
-                  {{ getOptionLabel(product, check) }}:
-                  +${{ product.configurator[check] }}
+            <!-- Delivery: International -->
+            <template v-else>
+              <el-form-item :label="$t('checkout.form.delivery')">
+                <el-radio-group v-model="form.delivery">
+                  <el-radio label="pickup">{{ $t('checkout.form.pickup') }}</el-radio>
+                  <el-radio label="post">{{ $t('checkout.form.post') }}</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="form.delivery === 'post'">
+                <el-input
+                  v-model="form.address"
+                  :placeholder="$t('checkout.form.address')"
+                  prefix-icon="el-icon-office-building"
+                />
+              </el-form-item>
+            </template>
+
+            <el-form-item :label="$t('checkout.form.payment')">
+              <el-radio-group v-model="form.payment">
+                <el-radio label="invoice">{{ $t('checkout.form.invoice') }}</el-radio>
+                <el-radio label="cod">{{ $t('checkout.form.cod') }}</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-form>
+
+          <div class="checkout-products">
+            <div
+              v-for="product in products"
+              :key="product.id"
+              class="checkout-product-row"
+            >
+              <img
+                :src="getImageSrc(product.images[0])"
+                class="checkout-product-img"
+              />
+              <div class="checkout-product-info">
+                <span class="checkout-product-title">{{ getTitle(product) }}</span>
+                <span class="checkout-product-price">
+                  ${{ product.price }} x {{ product.quantity }}
                 </span>
+                <div v-if="product.totalPrice" class="checkout-product-config">
+                  <span
+                    v-for="check in product.checkList"
+                    :key="check"
+                  >
+                    {{ getOptionLabel(product, check) }}:
+                    +${{ product.configurator[check] }}
+                  </span>
+                </div>
               </div>
+              <span class="checkout-product-subtotal">
+                ${{ (product.totalPrice || product.price) * product.quantity }}
+              </span>
             </div>
-            <span class="checkout-product-subtotal">
-              ${{ (product.totalPrice || product.price) * product.quantity }}
+          </div>
+
+          <div class="checkout-total">
+            {{ $t('shop.cart.total') }}: <b>${{ total }}</b>
+            <span v-if="isUkraine && usdRate" class="amount-usd">
+              ({{ Math.round(total * usdRate * 100) / 100 }} ₴ за курсом {{ usdRate }})
             </span>
+          </div>
+
+          <div v-if="processing" class="checkout-loading">
+            <div
+              v-loading="processing"
+              element-loading-text="Sending..."
+            />
           </div>
         </div>
 
-        <div class="checkout-total">
-          {{ $t('shop.cart.total') }}: <b>${{ total }}</b>
-        </div>
-
-        <div v-if="processing" class="checkout-loading">
-          <div
-            v-loading="processing"
-            element-loading-text="Sending..."
+        <!-- Step 2: Payment Requisites (Ukraine + Invoice only) -->
+        <div v-show="checkoutStep === 2" class="payment-requisites">
+          <el-alert
+            type="success"
+            :title="$t('checkout.paymentDetails.orderPlaced')"
+            show-icon
+            :closable="false"
           />
+
+          <div class="requisites-section">
+            <h4>{{ $t('checkout.paymentDetails.bankDetails') }}</h4>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.company') }}:</span>
+              <span>{{ bankRequisites.companyName }}</span>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.ipn') }}:</span>
+              <span>{{ bankRequisites.ipn }}</span>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.bank') }}:</span>
+              <span>{{ bankRequisites.bankName }}</span>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.mfo') }}:</span>
+              <span>{{ bankRequisites.mfo }}</span>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">IBAN:</span>
+              <span class="iban-value">{{ bankRequisites.iban }}</span>
+              <el-button size="mini" icon="el-icon-copy-document" @click="copyToClipboard(bankRequisites.iban)">
+                {{ $t('checkout.paymentDetails.copy') }}
+              </el-button>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.amount') }}:</span>
+              <span>
+                <b>{{ orderTotalUah }} ₴</b>
+                <span class="amount-usd">(${{ orderTotal }} × {{ usdRate }} ₴)</span>
+              </span>
+              <el-button size="mini" icon="el-icon-copy-document" @click="copyToClipboard(String(orderTotalUah))">
+                {{ $t('checkout.paymentDetails.copy') }}
+              </el-button>
+            </div>
+            <div class="requisite-row">
+              <span class="requisite-label">{{ $t('checkout.paymentDetails.purpose') }}:</span>
+              <span>{{ paymentPurpose }}</span>
+            </div>
+          </div>
+
+          <div class="qr-section">
+            <h4>{{ $t('checkout.paymentDetails.qrTitle') }}</h4>
+            <p>{{ $t('checkout.paymentDetails.qrHint') }}</p>
+            <canvas ref="qrCanvas"></canvas>
+          </div>
         </div>
 
         <span slot="footer">
-          <el-button @click="checkoutVisible = false">
-            {{ $t('checkout.form.cancel') || 'Cancel' }}
-          </el-button>
-          <el-button
-            type="primary"
-            :loading="processing"
-            @click="submitOrder"
-          >
-            {{ $t('checkout.form.submit') }}
-          </el-button>
+          <template v-if="checkoutStep === 1">
+            <el-button @click="checkoutVisible = false">
+              {{ $t('checkout.form.cancel') || 'Cancel' }}
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="processing"
+              @click="submitOrder"
+            >
+              {{ $t('checkout.form.submit') }}
+            </el-button>
+          </template>
+          <template v-else>
+            <el-button type="primary" @click="closeAfterPayment">
+              {{ $t('checkout.paymentDetails.done') }}
+            </el-button>
+          </template>
         </span>
       </el-dialog>
     </el-col>
@@ -206,25 +328,42 @@
 
 <script>
 import axios from 'axios'
+import QRCode from 'qrcode'
 import { mapGetters, mapState } from 'vuex'
+import { BANK_REQUISITES } from '@/config/bankRequisites'
+import { searchCities, getWarehouses } from '@/api/novaPoshta'
+import { getUsdRate } from '@/api/monobank'
 
 export default {
   data() {
     return {
       checkoutVisible: false,
+      checkoutStep: 1,
+      orderReference: '',
+      orderTotal: 0,
       form: {
         name: '',
         phone: '',
         email: '',
-        country: '',
+        country: 'UA',
         delivery: 'pickup',
         address: '',
+        branch: '',
         payment: 'invoice',
         website: '',
       },
       processing: false,
       startTime: 0,
       clientIp: 'Unknown',
+      usdRate: 0,
+      // Nova Poshta
+      npCityQuery: '',
+      npCities: [],
+      npSelectedCity: null,
+      npWarehouses: [],
+      npWarehouseQuery: '',
+      npCityLoading: false,
+      npWarehouseLoading: false,
     }
   },
   computed: {
@@ -239,6 +378,34 @@ export default {
     dialogWidth() {
       return window.innerWidth < 768 ? '95%' : '500px'
     },
+    isUkraine() {
+      return this.form.country === 'UA'
+    },
+    isUkraineInvoice() {
+      return this.isUkraine && this.form.payment === 'invoice'
+    },
+    bankRequisites() {
+      return BANK_REQUISITES
+    },
+    orderTotalUah() {
+      if (!this.usdRate || !this.orderTotal) return 0
+      return Math.round(this.orderTotal * this.usdRate * 100) / 100
+    },
+    paymentPurpose() {
+      return BANK_REQUISITES.paymentPurpose(this.orderTotalUah, this.orderReference)
+    },
+  },
+  watch: {
+    'form.country'() {
+      this.form.delivery = 'pickup'
+      this.form.address = ''
+      this.form.branch = ''
+      this.resetNovaPoshta()
+    },
+    'form.delivery'() {
+      this.form.branch = ''
+      this.resetNovaPoshta()
+    },
   },
   mounted() {
     axios
@@ -247,8 +414,44 @@ export default {
         if (res.data && res.data.ip) this.clientIp = res.data.ip
       })
       .catch(() => {})
+    getUsdRate().then(usd => {
+      if (usd && usd.rateBuy) this.usdRate = usd.rateBuy
+    })
   },
   methods: {
+    // --- Nova Poshta ---
+    handleCitySelect(city) {
+      this.npSelectedCity = city
+      this.npWarehouseQuery = ''
+      this.form.branch = ''
+    },
+    handleWarehouseSelect(warehouse) {
+      this.form.branch = warehouse.name
+    },
+    npCityFetch(query, cb) {
+      if (!query || query.length < 2) return cb([])
+      this.npCityLoading = true
+      searchCities(query).then(cities => {
+        this.npCityLoading = false
+        cb(cities)
+      })
+    },
+    npWarehouseFetch(query, cb) {
+      if (!this.npSelectedCity) return cb([])
+      this.npWarehouseLoading = true
+      getWarehouses(this.npSelectedCity.ref, query || '').then(warehouses => {
+        this.npWarehouseLoading = false
+        cb(warehouses)
+      })
+    },
+    resetNovaPoshta() {
+      this.npCityQuery = ''
+      this.npCities = []
+      this.npSelectedCity = null
+      this.npWarehouses = []
+      this.npWarehouseQuery = ''
+    },
+    // --- General ---
     getTitle(product) {
       if (typeof product.title === 'object') {
         return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
@@ -279,17 +482,49 @@ export default {
     openCheckout() {
       this.$refs.cartPopover.doClose()
       this.checkoutVisible = true
+      this.checkoutStep = 1
       this.startTime = Date.now()
     },
     removeProduct(productId) {
       this.$store.dispatch('cart/removeProductFromCart', productId)
     },
+    resetForm() {
+      this.form.name = ''
+      this.form.phone = ''
+      this.form.email = ''
+      this.form.country = 'UA'
+      this.form.delivery = 'pickup'
+      this.form.address = ''
+      this.form.branch = ''
+      this.form.payment = 'invoice'
+    },
+    generateQR() {
+      const link = BANK_REQUISITES.nbuQrLink(this.orderTotalUah, this.paymentPurpose)
+      QRCode.toCanvas(this.$refs.qrCanvas, link, { width: 200 }, (err) => {
+        if (err) console.error('QR generation failed:', err)
+      })
+    },
+    copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.$notify({
+          title: '',
+          message: this.$t('checkout.paymentDetails.copied'),
+          type: 'success',
+          offset: 100,
+          duration: 2000,
+        })
+      })
+    },
+    closeAfterPayment() {
+      this.checkoutVisible = false
+      this.checkoutStep = 1
+      this.resetForm()
+    },
     submitOrder() {
       if (
         !this.form.name ||
         !this.form.phone ||
-        !this.form.email ||
-        !this.form.country
+        !this.form.email
       ) {
         this.$notify.error({
           title: this.$t('notifications.errorTitle'),
@@ -329,12 +564,16 @@ export default {
         email: this.form.email,
         country: this.form.country,
         delivery: this.form.delivery,
+        branch: (this.form.delivery === 'novaposhta' || this.form.delivery === 'ukrposhta')
+          ? this.form.branch : '',
         address: this.form.delivery === 'post' ? this.form.address : '',
         payment: this.form.payment,
         ip: this.clientIp,
         honeypot: this.form.website,
         timeTaken: Date.now() - this.startTime,
         total: this.total,
+        totalUah: this.usdRate ? Math.round(this.total * this.usdRate * 100) / 100 : 0,
+        usdRate: this.usdRate,
         products: this.products.map(product => ({
           title: this.getTitle(product),
           price: product.price,
@@ -353,24 +592,27 @@ export default {
         })
         .then(response => {
           this.processing = false
+          console.log('Google Script response:', JSON.stringify(response.data))
 
           if (response.data && response.data.status === 'success') {
-            this.$notify({
-              title: this.$t('notifications.succesfullOrderTitle'),
-              message: this.$t('notifications.succesfullOrder'),
-              type: 'success',
-              offset: 100,
-              duration: 4500,
-            })
-            this.checkoutVisible = false
-            this.form.name = ''
-            this.form.phone = ''
-            this.form.email = ''
-            this.form.country = ''
-            this.form.delivery = 'pickup'
-            this.form.address = ''
-            this.form.payment = 'invoice'
-            this.$store.dispatch('cart/clearCart')
+            if (this.isUkraineInvoice) {
+              this.orderTotal = this.total
+              this.orderReference = response.data.orderNumber || Date.now().toString()
+              this.checkoutStep = 2
+              this.$store.dispatch('cart/clearCart')
+              this.$nextTick(() => this.generateQR())
+            } else {
+              this.$notify({
+                title: this.$t('notifications.succesfullOrderTitle'),
+                message: this.$t('notifications.succesfullOrder'),
+                type: 'success',
+                offset: 100,
+                duration: 4500,
+              })
+              this.checkoutVisible = false
+              this.resetForm()
+              this.$store.dispatch('cart/clearCart')
+            }
           } else {
             this.$notify.error({
               title: this.$t('notifications.errorTitle'),
@@ -556,6 +798,54 @@ li {
   height: 0;
   width: 0;
   overflow: hidden;
+}
+
+.payment-requisites {
+  .requisites-section {
+    margin: 16px 0;
+    h4 {
+      margin: 0 0 10px;
+      color: #333;
+    }
+  }
+  .requisite-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+    .requisite-label {
+      font-weight: 500;
+      color: #666;
+      min-width: 100px;
+    }
+    .iban-value {
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .amount-usd {
+      font-size: 12px;
+      color: #888;
+      margin-left: 4px;
+    }
+  }
+  .qr-section {
+    text-align: center;
+    margin: 20px 0 10px;
+    h4 {
+      margin: 0 0 6px;
+    }
+    p {
+      font-size: 13px;
+      color: #888;
+      margin: 0 0 12px;
+    }
+    canvas {
+      display: inline-block;
+    }
+  }
 }
 </style>
 <style>
