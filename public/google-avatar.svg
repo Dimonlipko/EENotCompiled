@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#162a3a"/>
+      <stop offset="100%" stop-color="#0a1018"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feFlood flood-color="#00c8c8" flood-opacity="0.45" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glowColor"/>
+      <feMerge>
+        <feMergeNode in="glowColor"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark circular background -->
+  <circle cx="256" cy="256" r="256" fill="url(#bgGrad)"/>
+
+  <!-- Broken circle (C-shape arc) matching original logo -->
+  <path d="M 358 108
+           A 155 155 0 1 0 380 290"
+        fill="none" stroke="#d0d8e0" stroke-width="28" stroke-linecap="round"/>
+
+  <!-- Lightning bolt - matching original logo style -->
+  <g filter="url(#glow)">
+    <polygon points="295,95 215,260 262,260 192,420 330,230 272,230 330,95"
+             fill="#009A9A"/>
+    <!-- Highlight facet -->
+    <polygon points="295,95 215,260 262,260 272,230 330,95"
+             fill="#00b8b8"/>
+  </g>
+</svg>

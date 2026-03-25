@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Download Google Avatar</title>
+  <style>
+    body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: Arial, sans-serif; color: #fff; }
+    img, canvas { border-radius: 50%; margin: 20px; }
+    h2 { margin-bottom: 0; }
+    p { color: #aaa; }
+    button { background: #009A9A; color: #fff; border: none; padding: 14px 32px; font-size: 18px; border-radius: 8px; cursor: pointer; margin-top: 16px; }
+    button:hover { background: #00b8b8; }
+  </style>
+</head>
+<body>
+  <h2>E-Engines Google Avatar</h2>
+  <p>Preview (circular crop):</p>
+  <canvas id="canvas" width="512" height="512"></canvas>
+  <button onclick="download()">Download PNG 512x512</button>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = function() {
+      ctx.drawImage(img, 0, 0, 512, 512);
+    };
+    img.src = 'google-avatar.svg';
+
+    function download() {
+      const link = document.createElement('a');
+      link.download = 'e-engines-avatar-512.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>

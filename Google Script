@@ -177,11 +177,18 @@ function doPost(e) {
       // --- EMAIL підтвердження клієнту ---
       if (data.email) {
         try {
-          MailApp.sendEmail({
-            to: data.email,
-            subject: 'Замовлення #' + orderNumber + ' прийнято — Electric Engines',
-            htmlBody: buildOrderEmailHtml(data)
-          });
+          var emailSubject = data.country === 'UA'
+            ? 'Замовлення #' + orderNumber + ' прийнято — Electric Engines'
+            : 'Order #' + orderNumber + ' confirmed — Electric Engines';
+          GmailApp.sendEmail(data.email,
+            emailSubject,
+            '',
+            {
+              from: 'electricenginescar@gmail.com',
+              name: 'Electric Engines',
+              htmlBody: buildOrderEmailHtml(data)
+            }
+          );
           writeLog("INFO", "Confirmation email sent to: " + data.email);
         } catch (emailErr) {
           writeLog("WARN", "Failed to send email to " + data.email + ": " + emailErr.toString());
@@ -273,6 +280,30 @@ function saveOrderToSupabase(data, orderNumber, productsInfo) {
 
 function buildOrderEmailHtml(data) {
   var orderNum = data.orderNumber || '';
+  var isUA = data.country === 'UA';
+
+  var t = isUA ? {
+    order: 'Замовлення',
+    greeting: 'Вітаємо, ' + (data.name || '') + '! Ваше замовлення прийнято і буде оброблено найближчим часом.',
+    total: 'Сума',
+    requisites: 'Реквізити для оплати',
+    recipient: 'Отримувач',
+    bank: 'Банк',
+    purpose: 'Призначення',
+    amount: 'Сума',
+    contact: 'Якщо у вас є питання — зв\'яжіться з нами: +38 095 487 40 19'
+  } : {
+    order: 'Order',
+    greeting: 'Hello, ' + (data.name || '') + '! Your order has been received and will be processed shortly.',
+    total: 'Total',
+    requisites: 'Payment Details',
+    recipient: 'Recipient',
+    bank: 'Bank',
+    purpose: 'Purpose',
+    amount: 'Amount',
+    contact: 'If you have any questions — contact us: +38 095 487 40 19'
+  };
+
   var productsHtml = '';
   if (data.products && data.products.length) {
     productsHtml = '<table style="width:100%;border-collapse:collapse;margin:12px 0">';
@@ -282,20 +313,21 @@ function buildOrderEmailHtml(data) {
         '<td style="padding:6px 8px;text-align:center">x' + (p.quantity || 1) + '</td>' +
         '<td style="padding:6px 0;text-align:right">$' + (p.price || 0) + '</td></tr>';
     });
-    productsHtml += '<tr style="border-top:2px solid #00ddc0"><td colspan="2" style="padding:8px 0;font-weight:bold">Сума / Total</td>' +
+    productsHtml += '<tr style="border-top:2px solid #00ddc0"><td colspan="2" style="padding:8px 0;font-weight:bold">' + t.total + '</td>' +
       '<td style="padding:8px 0;text-align:right;font-weight:bold">$' + (data.total || 0) + '</td></tr></table>';
   }
 
   var requisitesHtml = '';
-  if (data.payment === 'invoice' && data.country === 'UA') {
+  if (data.payment === 'invoice' && isUA) {
     requisitesHtml = '<div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:16px 0">' +
-      '<h3 style="margin:0 0 10px;color:#333">Реквізити для оплати</h3>' +
-      '<p style="margin:4px 0"><b>Отримувач:</b> ФОП Ліпко Дмитро Олегович</p>' +
+      '<h3 style="margin:0 0 10px;color:#333">' + t.requisites + '</h3>' +
+      '<p style="margin:4px 0"><b>' + t.recipient + ':</b> ФОП Ліпко Дмитро Олегович</p>' +
       '<p style="margin:4px 0"><b>ІПН:</b> 3573011735</p>' +
-      '<p style="margin:4px 0"><b>IBAN:</b> <span style="font-family:monospace">UA543220010000026002370019520</span></p>' +
-      '<p style="margin:4px 0"><b>Банк:</b> АТ "УНІВЕРСАЛ БАНК", МФО 322001</p>' +
-      '<p style="margin:4px 0"><b>Призначення:</b> Оплата автозапчастин, замовлення #' + orderNum + '</p>' +
-      '<p style="margin:4px 0"><b>Сума:</b> ' + (data.totalUah || 0) + ' ₴ ($' + (data.total || 0) + ' × ' + (data.usdRate || '?') + ' ₴)</p>' +
+      '<p style="margin:4px 0"><b>IBAN:</b> UA543220010000026002370019520</p>' +
+      '<p style="margin:4px 0"><b>' + t.bank + ':</b> АТ "УНІВЕРСАЛ БАНК", МФО 322001</p>' +
+      '<p style="margin:4px 0"><b>' + t.purpose + ':</b> Оплата автозапчастин, замовлення #' + orderNum + '</p>' +
+      '<p style="margin:4px 0"><b>' + t.amount + ':</b> ' + (data.totalUah || 0) + ' ₴ ($' + (data.total || 0) + ' × ' + (data.usdRate || '?') + ' ₴)</p>' +
+      '<p style="margin:10px 0 0;color:#555;font-style:italic">' + (isUA ? 'Після зарахування грошей, вам прийде сповіщення.' : 'You will receive a notification once the payment is received.') + '</p>' +
       '</div>';
   }
 
@@ -303,11 +335,11 @@ function buildOrderEmailHtml(data) {
     '<div style="background:#00ddc0;padding:20px;text-align:center;border-radius:8px 8px 0 0">' +
     '<h1 style="margin:0;color:#fff;font-size:22px">Electric Engines</h1></div>' +
     '<div style="padding:20px;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px">' +
-    '<h2 style="color:#333;margin:0 0 16px">Замовлення #' + orderNum + '</h2>' +
-    '<p>Вітаємо, ' + (data.name || '') + '! Ваше замовлення прийнято і буде оброблено найближчим часом.</p>' +
+    '<h2 style="color:#333;margin:0 0 16px">' + t.order + ' #' + orderNum + '</h2>' +
+    '<p>' + t.greeting + '</p>' +
     productsHtml +
     requisitesHtml +
-    '<p style="color:#888;font-size:13px;margin-top:20px">Якщо у вас є питання — зв\'яжіться з нами: +38 095 487 40 19</p>' +
+    '<p style="color:#888;font-size:13px;margin-top:20px">' + t.contact + '</p>' +
     '</div></div>';
 }
 

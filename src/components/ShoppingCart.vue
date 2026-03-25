@@ -102,12 +102,13 @@
                 prefix-icon="el-icon-user"
               />
             </el-form-item>
-            <el-form-item>
+            <el-form-item :error="phoneError">
               <el-input
                 v-model="form.phone"
-                :placeholder="$t('contact.form.phone')"
+                :placeholder="isUkraine ? '+38 (0XX) XXX-XX-XX' : $t('contact.form.phone')"
                 prefix-icon="el-icon-phone"
-                @input="form.phone = form.phone.replace(/[^0-9+\-() ]/g, '')"
+                maxlength="19"
+                @input="formatPhone"
               />
             </el-form-item>
             <el-form-item>
@@ -194,7 +195,8 @@
             <el-form-item :label="$t('checkout.form.payment')">
               <el-radio-group v-model="form.payment">
                 <el-radio label="invoice">{{ $t('checkout.form.invoice') }}</el-radio>
-                <el-radio label="cod">{{ $t('checkout.form.cod') }}</el-radio>
+                <el-radio v-if="form.delivery === 'novaposhta'" label="cod_np">{{ $t('checkout.form.codNP') }}</el-radio>
+                <el-radio v-if="form.delivery === 'pickup' || form.country !== 'UA'" label="cod">{{ $t('checkout.form.cod') }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-form>
@@ -249,7 +251,7 @@
         <div v-show="checkoutStep === 2" class="payment-requisites">
           <el-alert
             type="success"
-            :title="$t('checkout.paymentDetails.orderPlaced')"
+            :title="$t('checkout.paymentDetails.orderPlaced') + (orderReference ? ' #' + orderReference : '')"
             show-icon
             :closable="false"
           />
@@ -298,7 +300,9 @@
           <div class="qr-section">
             <h4>{{ $t('checkout.paymentDetails.qrTitle') }}</h4>
             <p>{{ $t('checkout.paymentDetails.qrHint') }}</p>
-            <canvas ref="qrCanvas"></canvas>
+            <a :href="paymentLink" target="_blank" rel="noopener" class="qr-link">
+              <canvas ref="qrCanvas"></canvas>
+            </a>
           </div>
         </div>
 
@@ -394,6 +398,21 @@ export default {
     paymentPurpose() {
       return BANK_REQUISITES.paymentPurpose(this.orderTotalUah, this.orderReference)
     },
+    paymentLink() {
+      return BANK_REQUISITES.nbuQrLink(this.orderTotalUah, this.paymentPurpose)
+    },
+    phoneDigitsOnly() {
+      return (this.form.phone || '').replace(/\D/g, '')
+    },
+    phoneError() {
+      if (!this.form.phone || this.form.phone.length < 4) return ''
+      if (this.isUkraine) {
+        var d = this.phoneDigitsOnly
+        if (d.length > 0 && d.length < 12) return this.$t('notifications.invalidPhone')
+        if (d.length === 12 && !d.startsWith('380')) return this.$t('notifications.invalidPhone')
+      }
+      return ''
+    },
   },
   watch: {
     'form.country'() {
@@ -402,9 +421,13 @@ export default {
       this.form.branch = ''
       this.resetNovaPoshta()
     },
-    'form.delivery'() {
+    'form.delivery'(val) {
       this.form.branch = ''
       this.resetNovaPoshta()
+      // Скинути cod_np якщо змінили доставку не на НП
+      if (val !== 'novaposhta' && this.form.payment === 'cod_np') {
+        this.form.payment = 'invoice'
+      }
     },
   },
   mounted() {
@@ -419,6 +442,36 @@ export default {
     })
   },
   methods: {
+    formatPhone() {
+      var input = this.form.phone
+      if (!input || input === '+') return
+      var raw = input.replace(/\D/g, '')
+      if (!raw) { this.form.phone = '+'; return }
+
+      if (this.isUkraine) {
+        // 0... → 380...
+        if (raw.startsWith('0')) raw = '38' + raw
+        // 3... але не 38 → додаємо 38 тільки якщо вже є 38
+        // Обрізаємо до 12 цифр (380XXXXXXXXX)
+        if (raw.startsWith('38')) raw = raw.substring(0, 12)
+        // Якщо ввели просто 3 або 38 — показуємо +3 або +38
+        if (raw.length <= 2 && raw.startsWith('3')) {
+          this.form.phone = '+' + raw
+          return
+        }
+
+        // Форматуємо +38 (0XX) XXX-XX-XX
+        var f = '+38'
+        if (raw.length > 2) f += ' (0' + raw.substring(3, 5)
+        if (raw.length >= 5) f += ') '
+        if (raw.length > 5) f += raw.substring(5, 8)
+        if (raw.length > 8) f += '-' + raw.substring(8, 10)
+        if (raw.length > 10) f += '-' + raw.substring(10, 12)
+        this.form.phone = f
+      } else {
+        this.form.phone = '+' + raw
+      }
+    },
     // --- Nova Poshta ---
     handleCitySelect(city) {
       this.npSelectedCity = city
@@ -499,10 +552,12 @@ export default {
       this.form.payment = 'invoice'
     },
     generateQR() {
-      const link = BANK_REQUISITES.nbuQrLink(this.orderTotalUah, this.paymentPurpose)
-      QRCode.toCanvas(this.$refs.qrCanvas, link, { width: 200 }, (err) => {
+      QRCode.toCanvas(this.$refs.qrCanvas, this.paymentLink, { width: 200 }, (err) => {
         if (err) console.error('QR generation failed:', err)
       })
+    },
+    openPaymentLink() {
+      window.open(this.paymentLink, '_blank')
     },
     copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => {
@@ -545,7 +600,11 @@ export default {
         return
       }
 
-      if (this.form.phone.replace(/[\s\-\+\(\)]/g, '').length < 9) {
+      var digits = this.phoneDigitsOnly
+      var phoneValid = this.isUkraine
+        ? digits.length === 12 && digits.startsWith('380')
+        : digits.length >= 9
+      if (!phoneValid) {
         this.$notify.error({
           title: this.$t('notifications.errorTitle'),
           message: this.$t('notifications.invalidPhone'),
@@ -595,19 +654,20 @@ export default {
           console.log('Google Script response:', JSON.stringify(response.data))
 
           if (response.data && response.data.status === 'success') {
+            var ref = response.data.orderNumber || Date.now().toString()
             if (this.isUkraineInvoice) {
               this.orderTotal = this.total
-              this.orderReference = response.data.orderNumber || Date.now().toString()
+              this.orderReference = ref
               this.checkoutStep = 2
               this.$store.dispatch('cart/clearCart')
               this.$nextTick(() => this.generateQR())
             } else {
               this.$notify({
                 title: this.$t('notifications.succesfullOrderTitle'),
-                message: this.$t('notifications.succesfullOrder'),
+                message: this.$t('notifications.succesfullOrder') + ' #' + ref,
                 type: 'success',
                 offset: 100,
-                duration: 4500,
+                duration: 6000,
               })
               this.checkoutVisible = false
               this.resetForm()
@@ -842,8 +902,18 @@ li {
       color: #888;
       margin: 0 0 12px;
     }
+    .qr-link {
+      display: inline-block;
+      cursor: pointer;
+      &:hover canvas {
+        opacity: 0.85;
+      }
+    }
     canvas {
       display: inline-block;
+    }
+    .pay-button {
+      margin-top: 12px;
     }
   }
 }

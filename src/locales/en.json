@@ -112,6 +112,7 @@
 			"address": "Delivery address",
 			"payment": "Payment",
 			"invoice": "Bank transfer",
+			"codNP": "Cash on delivery (Nova Poshta)",
 			"cod": "Cash on delivery",
 			"submit": "Submit order",
 			"cancel": "Cancel"
@@ -129,7 +130,8 @@
 			"copy": "Copy",
 			"copied": "Copied!",
 			"qrTitle": "QR Code for Payment",
-			"qrHint": "Scan QR code in Monobank or PrivatBank app",
+			"qrHint": "Scan QR code or tap to open payment page",
+			"payOnline": "Pay online",
 			"done": "Done"
 		}
 	},

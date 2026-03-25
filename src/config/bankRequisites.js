@@ -13,6 +13,14 @@ export const BANK_REQUISITES = {
    * Формат: NBU QR Code Specification (BCD/UCT).
    * Дані кодуються в Base64URL і додаються до URL.
    */
+  privat24Link(amount, purpose) {
+    const params = {
+      receiver: { source: 'iban', iban: this.iban },
+      purpose: purpose || 'Оплата автозапчастин',
+    }
+    if (amount) params.amount = amount
+    return 'https://next.privat24.ua/payments/form/' + encodeURIComponent(JSON.stringify(params))
+  },
   nbuQrLink(amount, purpose) {
     const lines = [
       'BCD',                                      // service label
