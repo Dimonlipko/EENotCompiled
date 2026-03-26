@@ -1,6 +1,6 @@
 // === GET — заглушка ===
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "3.3-orders", timestamp: new Date().toISOString()}))
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "4.3-position", timestamp: new Date().toISOString()}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -14,9 +14,9 @@ function doPost(e) {
     // --- TELEGRAM WEBHOOK ---
     if (data.update_id !== undefined) {
       if (data.callback_query) {
-        try { handleCallbackQuery(data.callback_query); } catch(ex) {}
+        try { handleCallbackQuery(data.callback_query); } catch(ex) { writeLog("BOT CALLBACK ERROR", ex.toString()); }
       } else if (data.message) {
-        try { handleTelegramWebhook(data); } catch(ex) {}
+        try { handleTelegramWebhook(data); } catch(ex) { writeLog("BOT MSG ERROR", ex.toString()); }
       }
       return HtmlService.createHtmlOutput();
     }
@@ -428,7 +428,7 @@ function handleTelegramWebhook(update) {
       if (state && state.action === "awaiting_photo") {
         return handleAddPhotoByState(chatId, message, state);
       }
-      if (state && state.action === "awaiting_new_product_photo") {
+      if (state && (state.action === "awaiting_new_product_photo" || state.action === "add_step_photo")) {
         return handleNewProductPhoto(chatId, message, state);
       }
       // Старий формат: фото + підпис
@@ -520,15 +520,88 @@ function handleStateInput(chatId, text, state) {
     return successStub();
   }
 
-  if (state.action === "awaiting_new_product_caption") {
-    // Зберігаємо підпис, чекаємо фото
-    var parts = text.split("|").map(function(s) { return s.trim(); });
-    if (parts.length < 3) {
-      sendTelegramReply(chatId, "❌ Формат: `Назва UA | Назва EN | Ціна`\nМожна додати опис: `Назва UA | Назва EN | Ціна | Опис UA | Опис EN`");
+  // --- Переміщення на задану позицію ---
+  if (state.action === "awaiting_position") {
+    var pos = parseInt(text);
+    var products = supabaseGetProducts();
+    if (isNaN(pos) || pos < 1 || pos > products.length) {
+      sendTelegramReply(chatId, "❌ Введіть число від 1 до " + products.length + ":");
       return successStub();
     }
-    setBotState(chatId, { action: "awaiting_new_product_photo", caption: text });
-    sendTelegramReply(chatId, "📸 Тепер надішли фото товару:");
+    var idx = -1;
+    for (var i = 0; i < products.length; i++) {
+      if (products[i].id === state.productId) { idx = i; break; }
+    }
+    if (idx === -1) { clearBotState(chatId); return successStub(); }
+    var item = products.splice(idx, 1)[0];
+    products.splice(pos - 1, 0, item);
+    supabaseUpdateProducts(products);
+    clearBotState(chatId);
+    var list = "";
+    for (var j = 0; j < products.length; j++) {
+      var marker = products[j].id === state.productId ? "👉 " : "   ";
+      list += marker + (j + 1) + ". " + products[j].title.ua + "\n";
+    }
+    sendTelegramWithKeyboard(chatId, "✅ Товар переміщено на позицію " + pos + "!\n\n" + list, MAIN_KEYBOARD);
+    return successStub();
+  }
+
+  // --- Редагування поля товару ---
+  if (state.action === "edit_field") {
+    var products = supabaseGetProducts();
+    var p = null;
+    for (var i = 0; i < products.length; i++) { if (products[i].id === state.productId) { p = products[i]; break; } }
+    if (!p) { clearBotState(chatId); sendTelegramReply(chatId, "❌ Товар не знайдено"); return successStub(); }
+    var field = state.field;
+    if (field === "titleua") p.title.ua = text;
+    else if (field === "titleen") p.title.en = text;
+    else if (field === "price") {
+      var newPrice = parseFloat(text);
+      if (isNaN(newPrice) || newPrice <= 0) { sendTelegramReply(chatId, "❌ Введіть коректну ціну:"); return successStub(); }
+      p.price = newPrice;
+    }
+    else if (field === "descua") { if (!p.description) p.description = {}; p.description.ua = text; }
+    else if (field === "descen") { if (!p.description) p.description = {}; p.description.en = text; }
+    supabaseUpdateProducts(products);
+    clearBotState(chatId);
+    sendTelegramWithKeyboard(chatId, "✅ Товар #" + state.productId + " оновлено!", MAIN_KEYBOARD);
+    return successStub();
+  }
+
+  // --- Wizard: додавання товару покроково ---
+  if (state.action === "add_step_title_ua") {
+    setBotState(chatId, { action: "add_step_title_en", product: { titleUA: text } });
+    var kb = { inline_keyboard: [[{ text: "⏭ Пропустити (= укр)", callback_data: "add_skip_title_en" }]] };
+    sendTelegramInline(chatId, "🇬🇧 Введіть назву англійською:", kb);
+    return successStub();
+  }
+  if (state.action === "add_step_title_en") {
+    state.product.titleEN = text;
+    setBotState(chatId, { action: "add_step_price", product: state.product });
+    sendTelegramReply(chatId, "💰 Введіть ціну в USD:");
+    return successStub();
+  }
+  if (state.action === "add_step_price") {
+    var p = parseFloat(text);
+    if (isNaN(p) || p <= 0) { sendTelegramReply(chatId, "❌ Введіть коректну ціну (число):"); return successStub(); }
+    state.product.price = p;
+    setBotState(chatId, { action: "add_step_desc_ua", product: state.product });
+    var kb = { inline_keyboard: [[{ text: "⏭ Пропустити", callback_data: "add_skip_desc_ua" }]] };
+    sendTelegramInline(chatId, "📝 Введіть опис українською:", kb);
+    return successStub();
+  }
+  if (state.action === "add_step_desc_ua") {
+    state.product.descUA = text;
+    setBotState(chatId, { action: "add_step_desc_en", product: state.product });
+    var kb = { inline_keyboard: [[{ text: "⏭ Пропустити (= укр)", callback_data: "add_skip_desc_en" }]] };
+    sendTelegramInline(chatId, "🇬🇧 Введіть опис англійською:", kb);
+    return successStub();
+  }
+  if (state.action === "add_step_desc_en") {
+    state.product.descEN = text;
+    setBotState(chatId, { action: "add_step_photo", product: state.product });
+    var kbPhoto = { inline_keyboard: [[{ text: "⏭ Без фото", callback_data: "add_skip_photo" }]] };
+    sendTelegramInline(chatId, "📸 Надішліть фото товару:", kbPhoto);
     return successStub();
   }
 
@@ -537,14 +610,22 @@ function handleStateInput(chatId, text, state) {
   return successStub();
 }
 
-// --- Додати товар: отримали фото після підпису ---
+// --- Wizard: отримали фото на кроці add_step_photo ---
 function handleNewProductPhoto(chatId, message, state) {
-  var caption = state.caption || "";
-  clearBotState(chatId);
-  return handleNewProduct(chatId, message, caption);
+  var prod = state.product || {};
+  if (!prod.photos) prod.photos = [];
+  var fileId = message.photo[message.photo.length - 1].file_id;
+
+  // Тимчасово зберігаємо file_id, завантажимо при фіналізації
+  prod.photos.push(fileId);
+  setBotState(chatId, { action: "add_step_photo", product: prod });
+
+  var kb = { inline_keyboard: [[{ text: "✅ Готово (" + prod.photos.length + " фото)", callback_data: "add_finish_photos" }]] };
+  sendTelegramInline(chatId, "📸 Фото #" + prod.photos.length + " додано! Надішліть ще або натисніть Готово:", kb);
+  return successStub();
 }
 
-// --- Додати фото до товару по стейту ---
+// --- Додати фото до товару по стейту (підтримує кілька підряд) ---
 function handleAddPhotoByState(chatId, message, state) {
   var products = supabaseGetProducts();
   var product = null;
@@ -557,12 +638,13 @@ function handleAddPhotoByState(chatId, message, state) {
   var photoNum = product.images.length + 1;
   var filename = "product-" + state.productId + "-" + photoNum + ".jpg";
   var imageUrl = uploadTelegramPhotoToSupabase(fileId, filename);
-  if (!imageUrl) { clearBotState(chatId); sendTelegramReply(chatId, "❌ Помилка завантаження"); return successStub(); }
+  if (!imageUrl) { sendTelegramReply(chatId, "❌ Помилка завантаження"); return successStub(); }
 
   product.images.push(imageUrl);
   supabaseUpdateProducts(products);
-  clearBotState(chatId);
-  sendTelegramWithKeyboard(chatId, "✅ Фото додано до товару #" + state.productId + " (всього: " + product.images.length + ")", MAIN_KEYBOARD);
+  // Залишаємо стейт — можна додати ще фото
+  var kb = { inline_keyboard: [[{ text: "✅ Готово (" + product.images.length + " фото)", callback_data: "finish_add_photo" }]] };
+  sendTelegramInline(chatId, "📸 Фото додано! (всього: " + product.images.length + ") Надішліть ще або натисніть Готово:", kb);
   return successStub();
 }
 
@@ -809,24 +891,6 @@ function handleManual(chatId, message) {
   return successStub();
 }
 
-// --- Допомога ---
-function handleHelp(chatId) {
-  var text = "🤖 *Electric Engines — Адмін панель*\n\nОберіть розділ:";
-  var keyboard = {
-    inline_keyboard: [
-      [
-        { text: "📦 Асортимент", callback_data: "menu_products" },
-        { text: "📋 Замовлення", callback_data: "menu_orders" }
-      ],
-      [
-        { text: "❓ Довідка", callback_data: "menu_help_full" }
-      ]
-    ]
-  };
-  sendTelegramKeyboard(chatId, text, keyboard);
-  return successStub();
-}
-
 // ============================================================
 // === CALLBACK QUERY (інлайн кнопки) ===
 // ============================================================
@@ -852,11 +916,20 @@ function handleCallbackQuery(query) {
   // --- Товари: дії ---
   if (data === "cmd_list") return handleList(chatId);
   if (data === "action_add") return startAddProduct(chatId);
+  if (data === "action_edit") return showProductButtons(chatId, "edit");
   if (data === "action_price") return showProductButtons(chatId, "price");
   if (data === "action_status") return showProductButtons(chatId, "status");
   if (data === "action_photo") return showProductButtons(chatId, "photo");
-  if (data === "action_options") return showProductButtons(chatId, "options");
+  // action_options прибрано — опції тепер через ✏️ Редагувати
   if (data === "action_delete") return showProductButtons(chatId, "delete");
+
+  // --- Wizard: skip та finish кнопки ---
+  if (data.startsWith("add_skip_") || data === "add_finish_photos") return handleAddSkip(chatId, data);
+  if (data === "finish_add_photo") { clearBotState(chatId); sendTelegramWithKeyboard(chatId, "✅ Фото збережено!", MAIN_KEYBOARD); return successStub(); }
+
+  // --- Редагування товару ---
+  if (data.startsWith("edit_")) return handleEditCallback(chatId, data);
+  if (data.startsWith("move_")) return handleMoveProduct(chatId, data);
 
   // --- Вибір товару для дії ---
   if (data.startsWith("price_")) return startPriceChange(chatId, parseInt(data.split("_")[1]));
@@ -879,13 +952,106 @@ function showMainMenu(chatId) {
   return successStub();
 }
 
+// --- Wizard: обробка skip кнопок ---
+function handleAddSkip(chatId, callbackData) {
+  var state = getBotState(chatId);
+  if (!state || !state.product) { clearBotState(chatId); return successStub(); }
+
+  if (callbackData === "add_skip_title_en") {
+    state.product.titleEN = state.product.titleUA;
+    setBotState(chatId, { action: "add_step_price", product: state.product });
+    sendTelegramReply(chatId, "💰 Введіть ціну в USD:");
+    return successStub();
+  }
+  if (callbackData === "add_skip_desc_ua") {
+    state.product.descUA = "";
+    setBotState(chatId, { action: "add_step_desc_en", product: state.product });
+    var kb = { inline_keyboard: [[{ text: "⏭ Пропустити", callback_data: "add_skip_desc_en" }]] };
+    sendTelegramInline(chatId, "🇬🇧 Введіть опис англійською:", kb);
+    return successStub();
+  }
+  if (callbackData === "add_skip_photo") {
+    return createProductWithoutPhoto(chatId, state.product);
+  }
+  if (callbackData === "add_finish_photos") {
+    return finalizeNewProduct(chatId, state.product);
+  }
+  if (callbackData === "add_skip_desc_en") {
+    state.product.descEN = state.product.descUA || "";
+    setBotState(chatId, { action: "add_step_photo", product: state.product });
+    var kbPhoto = { inline_keyboard: [[{ text: "⏭ Без фото", callback_data: "add_skip_photo" }]] };
+    sendTelegramInline(chatId, "📸 Надішліть фото товару:", kbPhoto);
+    return successStub();
+  }
+  return successStub();
+}
+
+// --- Wizard: фіналізація товару з фото ---
+function finalizeNewProduct(chatId, prod) {
+  var products = supabaseGetProducts();
+  var newId = 1;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id >= newId) newId = products[i].id + 1;
+  }
+  // Завантажити всі фото
+  var images = [];
+  var photoIds = prod.photos || [];
+  for (var j = 0; j < photoIds.length; j++) {
+    var filename = "product-" + newId + "-" + (j + 1) + ".jpg";
+    var url = uploadTelegramPhotoToSupabase(photoIds[j], filename);
+    if (url) images.push(url);
+  }
+  if (images.length === 0) {
+    images = [SUPABASE_URL + "/storage/v1/object/public/" + SUPABASE_BUCKET + "/images/no-photo.png"];
+  }
+  var newProduct = {
+    id: newId,
+    title: { ua: prod.titleUA || "", en: prod.titleEN || prod.titleUA || "" },
+    price: prod.price || 0,
+    images: images,
+    description: { ua: prod.descUA || "", en: prod.descEN || prod.descUA || "" },
+    options: []
+  };
+  products.push(newProduct);
+  supabaseUpdateProducts(products);
+  clearBotState(chatId);
+  sendTelegramWithKeyboard(chatId, "✅ Товар #" + newId + " додано!\n\n" +
+    "🇺🇦 " + newProduct.title.ua + "\n🇬🇧 " + newProduct.title.en +
+    "\n💰 $" + newProduct.price + "\n📸 " + images.length + " фото", MAIN_KEYBOARD);
+  return successStub();
+}
+
+// --- Wizard: створити товар без фото ---
+function createProductWithoutPhoto(chatId, prod) {
+  var products = supabaseGetProducts();
+  var newId = 1;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id >= newId) newId = products[i].id + 1;
+  }
+  var newProduct = {
+    id: newId,
+    title: { ua: prod.titleUA || "", en: prod.titleEN || prod.titleUA || "" },
+    price: prod.price || 0,
+    images: [SUPABASE_URL + "/storage/v1/object/public/" + SUPABASE_BUCKET + "/images/no-photo.png"],
+    description: { ua: prod.descUA || "", en: prod.descEN || prod.descUA || "" },
+    options: []
+  };
+  products.push(newProduct);
+  supabaseUpdateProducts(products);
+  clearBotState(chatId);
+  sendTelegramWithKeyboard(chatId, "✅ Товар #" + newId + " додано (без фото)!\n\n" +
+    "🇺🇦 " + newProduct.title.ua + "\n🇬🇧 " + newProduct.title.en + "\n💰 $" + newProduct.price +
+    "\n\nДодати фото: 📦 Товари → 📸 Фото", MAIN_KEYBOARD);
+  return successStub();
+}
+
 // --- Товари: головне меню ---
 function showProductsMenu(chatId) {
   var keyboard = { inline_keyboard: [
     [{ text: "📋 Список", callback_data: "cmd_list" }],
-    [{ text: "➕ Додати", callback_data: "action_add" }, { text: "📸 Фото", callback_data: "action_photo" }],
-    [{ text: "💰 Ціна", callback_data: "action_price" }, { text: "🏷 Статус", callback_data: "action_status" }],
-    [{ text: "⚙️ Опції", callback_data: "action_options" }, { text: "🗑 Видалити", callback_data: "action_delete" }]
+    [{ text: "➕ Додати", callback_data: "action_add" }, { text: "✏️ Редагувати", callback_data: "action_edit" }],
+    [{ text: "📸 Фото", callback_data: "action_photo" }, { text: "🏷 Статус", callback_data: "action_status" }],
+    [{ text: "🗑 Видалити", callback_data: "action_delete" }]
   ]};
   sendTelegramInline(chatId, "📦 *Товари* — оберіть дію:", keyboard);
   return successStub();
@@ -904,17 +1070,18 @@ function showProductButtons(chatId, action) {
     buttons.push([{ text: label, callback_data: action + "_" + p.id }]);
   }
   buttons.push([{ text: "◀️ Назад", callback_data: "menu_products" }]);
-  var titles = { price: "💰 Обери товар для зміни ціни:", status: "🏷 Обери товар для зміни статусу:",
+  var titles = { edit: "✏️ Обери товар для редагування:", price: "💰 Обери товар для зміни ціни:",
+    status: "🏷 Обери товар для зміни статусу:",
     photo: "📸 Обери товар для додавання фото:", options: "⚙️ Обери товар для редагування опцій:",
     delete: "🗑 Обери товар для видалення:" };
   sendTelegramInline(chatId, titles[action] || "Обери товар:", { inline_keyboard: buttons });
   return successStub();
 }
 
-// --- Додати товар ---
+// --- Додати товар (wizard) ---
 function startAddProduct(chatId) {
-  setBotState(chatId, { action: "awaiting_new_product_caption" });
-  sendTelegramReply(chatId, "📝 Введіть дані товару:\n`Назва UA | Назва EN | Ціна`\n\nМожна з описом:\n`Назва UA | Назва EN | Ціна | Опис UA | Опис EN`\n\nАбо надішли фото з підписом в такому ж форматі.\n\n❌ /cancel — скасувати");
+  setBotState(chatId, { action: "add_step_title_ua", product: {} });
+  sendTelegramReply(chatId, "🇺🇦 Введіть назву товару українською:\n\n❌ /cancel — скасувати");
   return successStub();
 }
 
@@ -954,6 +1121,86 @@ function setProductStatus(chatId, productId, statusKey) {
   }
   supabaseUpdateProducts(products);
   sendTelegramWithKeyboard(chatId, "✅ Статус товару #" + productId + " змінено: " + labelMap[statusKey], MAIN_KEYBOARD);
+  return successStub();
+}
+
+// --- Редагувати товар ---
+function handleEditCallback(chatId, data) {
+  var parts = data.split("_");
+  // edit_ID → показати меню редагування
+  if (parts.length === 2) {
+    var id = parseInt(parts[1]);
+    var products = supabaseGetProducts();
+    var p = null;
+    for (var i = 0; i < products.length; i++) { if (products[i].id === id) { p = products[i]; break; } }
+    if (!p) { sendTelegramReply(chatId, "❌ Товар не знайдено"); return successStub(); }
+    var status = p.status === "out_of_stock" ? " 🔴" : p.status === "coming_soon" ? " 🟡" : " ✅";
+    var text = "✏️ *Редагування #" + id + "*\n\n" +
+      "🇺🇦 " + p.title.ua + "\n🇬🇧 " + (p.title.en || "—") + "\n💰 $" + p.price + status +
+      "\n📸 " + (p.images ? p.images.length : 0) + " фото" +
+      "\n📝 " + (p.description && p.description.ua ? p.description.ua.substring(0, 50) : "—");
+    var kb = { inline_keyboard: [
+      [{ text: "🇺🇦 Назва UA", callback_data: "edit_" + id + "_titleua" }, { text: "🇬🇧 Назва EN", callback_data: "edit_" + id + "_titleen" }],
+      [{ text: "💰 Ціна", callback_data: "edit_" + id + "_price" }],
+      [{ text: "📝 Опис UA", callback_data: "edit_" + id + "_descua" }, { text: "📝 Опис EN", callback_data: "edit_" + id + "_descen" }],
+      [{ text: "⚙️ Опції", callback_data: "options_" + id }],
+      [{ text: "⬆️ Вгору", callback_data: "move_" + id + "_up" }, { text: "⬇️ Вниз", callback_data: "move_" + id + "_down" }, { text: "#️⃣ Позиція", callback_data: "move_" + id + "_pos" }],
+      [{ text: "◀️ Назад", callback_data: "action_edit" }]
+    ]};
+    sendTelegramInline(chatId, text, kb);
+    return successStub();
+  }
+  // edit_ID_field → запустити редагування поля
+  if (parts.length === 3) {
+    var id = parseInt(parts[1]);
+    var field = parts[2];
+    var labels = { titleua: "🇺🇦 назву українською", titleen: "🇬🇧 назву англійською", price: "💰 ціну в USD", descua: "📝 опис українською", descen: "📝 опис англійською" };
+    setBotState(chatId, { action: "edit_field", productId: id, field: field });
+    sendTelegramReply(chatId, "Введіть нову " + (labels[field] || field) + ":\n\n❌ /cancel — скасувати");
+    return successStub();
+  }
+  return successStub();
+}
+
+// --- Перемістити товар ---
+function handleMoveProduct(chatId, data) {
+  var parts = data.split("_");
+  var id = parseInt(parts[1]);
+  var direction = parts[2]; // "up" або "down"
+  var products = supabaseGetProducts();
+  var idx = -1;
+  for (var i = 0; i < products.length; i++) {
+    if (products[i].id === id) { idx = i; break; }
+  }
+  if (idx === -1) { sendTelegramReply(chatId, "❌ Товар не знайдено"); return successStub(); }
+  if (direction === "pos") {
+    var list = "";
+    for (var k = 0; k < products.length; k++) {
+      var m = products[k].id === id ? "👉 " : "   ";
+      list += m + (k + 1) + ". " + products[k].title.ua + "\n";
+    }
+    setBotState(chatId, { action: "awaiting_position", productId: id });
+    sendTelegramReply(chatId, "#️⃣ *Поточний порядок:*\n\n" + list + "\nВведіть номер позиції (1-" + products.length + "):\n\n❌ /cancel — скасувати");
+    return successStub();
+  }
+  if (direction === "up" && idx === 0) { sendTelegramReply(chatId, "⬆️ Товар вже перший"); return successStub(); }
+  if (direction === "down" && idx === products.length - 1) { sendTelegramReply(chatId, "⬇️ Товар вже останній"); return successStub(); }
+  var swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  var temp = products[idx];
+  products[idx] = products[swapIdx];
+  products[swapIdx] = temp;
+  supabaseUpdateProducts(products);
+  // Показати оновлений список
+  var list = "";
+  for (var j = 0; j < products.length; j++) {
+    var marker = products[j].id === id ? "👉 " : "   ";
+    list += marker + (j + 1) + ". " + products[j].title.ua + " $" + products[j].price + "\n";
+  }
+  var kb = { inline_keyboard: [
+    [{ text: "⬆️ Ще вгору", callback_data: "move_" + id + "_up" }, { text: "⬇️ Ще вниз", callback_data: "move_" + id + "_down" }],
+    [{ text: "✅ Готово", callback_data: "menu_products" }]
+  ]};
+  sendTelegramInline(chatId, "📦 *Порядок товарів:*\n\n" + list, kb);
   return successStub();
 }
 
