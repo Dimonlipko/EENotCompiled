@@ -59,6 +59,8 @@
 	"shop": {
 		"empty-page": "Пуста сторінка",
 		"addToCart": "Додати",
+		"outOfStock": "Немає в наявності",
+		"comingSoon": "Скоро буде",
 		"addedToCart": "Додано у кошик",
 		"cart": {
 			"header": "Кошик",

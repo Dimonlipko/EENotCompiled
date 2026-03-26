@@ -59,6 +59,8 @@
 	"shop": {
 		"empty-page": "Page empty",
 		"addToCart": "Add",
+		"outOfStock": "Out of stock",
+		"comingSoon": "Coming soon",
 		"addedToCart": "Added to cart",
 		"cart": {
 			"header": "Your Cart",

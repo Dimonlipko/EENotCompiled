@@ -32,8 +32,22 @@ v-for="image in product.images" :key="image"
           </div>
           <div class="button-wrapper">
             <el-button
+              v-if="product.status === 'out_of_stock'"
+              class="btn-add-to-cart btn-unavailable"
+              disabled
+            >
+              {{ $t('shop.outOfStock') }}
+            </el-button>
+            <el-button
+              v-else-if="product.status === 'coming_soon'"
+              class="btn-add-to-cart btn-coming-soon"
+              disabled
+            >
+              {{ $t('shop.comingSoon') }}
+            </el-button>
+            <el-button
+              v-else
               class="btn-add-to-cart"
-              :disabled="!product.inventory"
               @click="handleAddToCart(product)"
             >
               {{ $t('shop.addToCart') }}
