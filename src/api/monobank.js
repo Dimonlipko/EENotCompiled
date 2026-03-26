@@ -1,21 +1,21 @@
 import axios from 'axios'
 
-const MONO_API = 'https://api.monobank.ua'
+const SUPABASE_URL = 'https://fkmolbxcicwishbtmqbs.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbW9sYnhjaWN3aXNoYnRtcWJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNjAwNTIsImV4cCI6MjA4OTgzNjA1Mn0.akITabI14iWkHnouzcza_NzbLxDCwbkytXYqtXJiYIY'
 
 /**
- * Get current USD/UAH buy rate from Monobank
- * Currency codes: 840 = USD, 980 = UAH
- * @returns {Promise<{rateBuy: number, rateSell: number, date: number}|null>}
+ * Get USD/UAH rate from Supabase settings (updated hourly by Google Script)
+ * @returns {Promise<{rateBuy: number, rateSell: number}|null>}
  */
 export async function getUsdRate() {
   try {
-    const { data } = await axios.get(`${MONO_API}/bank/currency`)
-    const usd = (data || []).find(
-      c => c.currencyCodeA === 840 && c.currencyCodeB === 980
+    const { data } = await axios.get(
+      `${SUPABASE_URL}/rest/v1/settings?key=eq.usd_rate&select=value`,
+      { headers: { apikey: SUPABASE_ANON_KEY } }
     )
-    return usd || null
+    return (data && data[0] && data[0].value) || null
   } catch (e) {
-    console.error('Monobank getUsdRate error:', e)
+    console.warn('Failed to fetch USD rate from Supabase:', e.message)
     return null
   }
 }

@@ -111,7 +111,7 @@ function doPost(e) {
       const newRow = [
         new Date(),
         data.name,
-        data.phone,
+        "'" + (data.phone || ""),
         data.email || "—",
         data.message || "—",
         data.ip || "Не визначено"
@@ -143,7 +143,7 @@ function doPost(e) {
         new Date(),
         orderNumber,
         data.name,
-        data.phone,
+        "'" + (data.phone || ""),
         data.email || "—",
         productsInfo,
         data.country || "—",
@@ -939,6 +939,53 @@ function sendTelegramReply(chatId, text) {
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   });
+}
+
+// ============================================================
+// === КУРС USD/UAH — оновлення раз на годину (Time-driven trigger) ===
+// ============================================================
+
+function updateUsdRate() {
+  var resp = UrlFetchApp.fetch("https://api.monobank.ua/bank/currency", { muteHttpExceptions: true });
+  if (resp.getResponseCode() !== 200) {
+    writeLog("WARN", "updateUsdRate: Monobank API returned " + resp.getResponseCode());
+    return;
+  }
+  var currencies = JSON.parse(resp.getContentText());
+  var usd = null;
+  for (var i = 0; i < currencies.length; i++) {
+    if (currencies[i].currencyCodeA === 840 && currencies[i].currencyCodeB === 980) {
+      usd = currencies[i];
+      break;
+    }
+  }
+  if (!usd) {
+    writeLog("WARN", "updateUsdRate: USD/UAH not found in response");
+    return;
+  }
+
+  var SUPABASE_KEY = PropertiesService.getScriptProperties().getProperty("SUPABASE_SERVICE_KEY");
+  var payload = {
+    value: { rateBuy: usd.rateBuy, rateSell: usd.rateSell },
+    updated_at: new Date().toISOString()
+  };
+  var response = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/settings?key=eq.usd_rate", {
+    method: "PATCH",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  var code = response.getResponseCode();
+  if (code >= 200 && code < 300) {
+    writeLog("INFO", "USD rate updated: buy=" + usd.rateBuy + " sell=" + usd.rateSell);
+  } else {
+    writeLog("WARN", "updateUsdRate Supabase error " + code + ": " + response.getContentText());
+  }
 }
 
 // ============================================================

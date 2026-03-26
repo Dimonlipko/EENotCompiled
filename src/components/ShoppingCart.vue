@@ -438,7 +438,9 @@ export default {
       })
       .catch(() => {})
     getUsdRate().then(usd => {
-      if (usd && usd.rateBuy) this.usdRate = usd.rateBuy
+      if (usd && usd.rateBuy && usd.rateSell) {
+        this.usdRate = Math.round((usd.rateBuy + usd.rateSell) / 2 * 100) / 100
+      }
     })
   },
   methods: {
@@ -616,23 +618,26 @@ export default {
 
       this.processing = true
 
-      const orderData = {
-        type: 'order',
-        name: this.form.name,
-        phone: this.form.phone,
-        email: this.form.email,
-        country: this.form.country,
-        delivery: this.form.delivery,
-        branch: (this.form.delivery === 'novaposhta' || this.form.delivery === 'ukrposhta')
-          ? this.form.branch : '',
-        address: this.form.delivery === 'post' ? this.form.address : '',
-        payment: this.form.payment,
-        ip: this.clientIp,
-        honeypot: this.form.website,
-        timeTaken: Date.now() - this.startTime,
-        total: this.total,
-        totalUah: this.usdRate ? Math.round(this.total * this.usdRate * 100) / 100 : 0,
-        usdRate: this.usdRate,
+      // Якщо курс не підтягнувся — спробувати ще раз
+      const sendOrder = () => {
+        const rate = this.usdRate
+        const orderData = {
+          type: 'order',
+          name: this.form.name,
+          phone: this.form.phone,
+          email: this.form.email,
+          country: this.form.country,
+          delivery: this.form.delivery,
+          branch: (this.form.delivery === 'novaposhta' || this.form.delivery === 'ukrposhta')
+            ? this.form.branch : '',
+          address: this.form.delivery === 'post' ? this.form.address : '',
+          payment: this.form.payment,
+          ip: this.clientIp,
+          honeypot: this.form.website,
+          timeTaken: Date.now() - this.startTime,
+          total: this.total,
+          totalUah: rate ? Math.round(this.total * rate * 100) / 100 : 0,
+          usdRate: rate,
         products: this.products.map(product => ({
           title: this.getTitle(product),
           price: product.price,
@@ -691,6 +696,17 @@ export default {
             duration: 4500,
           })
         })
+      }
+
+      // Якщо курс не підтягнувся — спробувати ще раз перед відправкою
+      if (!this.usdRate && this.isUkraine) {
+        getUsdRate().then(usd => {
+          if (usd && usd.rateBuy) this.usdRate = usd.rateBuy
+          sendOrder()
+        })
+      } else {
+        sendOrder()
+      }
     },
   },
 }
