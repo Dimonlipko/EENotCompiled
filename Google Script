@@ -1,6 +1,6 @@
 // === GET — заглушка ===
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "5.9-sheet-status", timestamp: new Date().toISOString()}))
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "6.0-dedup", timestamp: new Date().toISOString()}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -1724,6 +1724,15 @@ function handleMonobankWebhook(statement) {
   var comment = statement.comment || "";
   var transactionId = statement.id || "";
   var fullText = description + " " + comment;
+
+  // Дедуплікація: ігнорувати повторні webhook для тієї ж транзакції
+  var monoCache = CacheService.getScriptCache();
+  var txKey = "mono_tx_" + transactionId;
+  if (monoCache.get(txKey)) {
+    writeLog("MONO", "Duplicate ignored: " + transactionId);
+    return;
+  }
+  monoCache.put(txKey, "1", 3600); // блокуємо на 1 годину
 
   writeLog("MONO", "Payment: " + amountUah + " UAH, desc: " + description + ", comment: " + comment + ", id: " + transactionId);
 
