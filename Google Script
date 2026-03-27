@@ -1,6 +1,6 @@
 // === GET — заглушка ===
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "4.7-photo-doc", timestamp: new Date().toISOString()}))
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", version: "5.9-sheet-status", timestamp: new Date().toISOString()}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -10,6 +10,19 @@ function doPost(e) {
     if (!e.postData || !e.postData.contents) throw new Error("No data received");
 
     const data = JSON.parse(e.postData.contents);
+
+    // --- ДЕБАГ: логувати тип запиту ---
+    if (data.type) {
+      writeLog("INCOMING TYPE", data.type + " | " + JSON.stringify(data).substring(0, 300));
+    }
+
+    // --- MONOBANK WEBHOOK ---
+    if (data.type === "StatementItem") {
+      writeLog("MONO RAW", JSON.stringify(data).substring(0, 500));
+      var statement = data.data && data.data.statementItem ? data.data.statementItem : data.data;
+      try { handleMonobankWebhook(statement); } catch(ex) { writeLog("MONO WEBHOOK ERROR", ex.toString()); }
+      return HtmlService.createHtmlOutput("OK");
+    }
 
     // --- TELEGRAM WEBHOOK ---
     if (data.update_id !== undefined) {
@@ -151,7 +164,8 @@ function doPost(e) {
         data.branch || data.address || "—",
         data.payment || "—",
         data.total || 0,
-        data.ip || "Не визначено"
+        data.ip || "Не визначено",
+        "очікує оплати"
       ];
 
       sheet.appendRow(newRow);
@@ -166,6 +180,7 @@ function doPost(e) {
 
       const telegramMessage = `⚡️ *Нове замовлення #${orderNumber}!*\n` +
                               `👤 ${data.name}\n📞 ${data.phone}\n` +
+                              `✉️ ${data.email || "—"}\n` +
                               `💰 ${data.total} $ (${data.totalUah || '?'} ₴)\n` +
                               `🚚 ${data.delivery || "—"} ${data.branch || data.address || ""}\n` +
                               `💳 ${data.payment || "—"}\n` +
@@ -253,7 +268,10 @@ function saveOrderToSupabase(data, orderNumber, productsInfo) {
     products: productsInfo,
     products_json: data.products || [],
     ip: data.ip || "",
+    total_uah: data.totalUah || 0,
+    usd_rate: data.usdRate || 0,
     status: "new",
+    payment_status: "pending",
     created_at: new Date().toISOString()
   };
 
@@ -317,8 +335,37 @@ function buildOrderEmailHtml(data) {
       '<td style="padding:8px 0;text-align:right;font-weight:bold">$' + (data.total || 0) + '</td></tr></table>';
   }
 
+  var deliveryHtml = '';
+  if (data.delivery || data.branch || data.address) {
+    var deliveryLabels = {
+      novaposhta: isUA ? 'Нова Пошта' : 'Nova Poshta',
+      ukrposhta: isUA ? 'Укрпошта' : 'Ukrposhta',
+      pickup: isUA ? 'Самовивіз' : 'Pickup',
+      post: isUA ? 'Міжнародна пошта' : 'International post'
+    };
+    var paymentLabels = {
+      invoice: isUA ? 'Рахунок (безготівкова)' : 'Invoice (bank transfer)',
+      cod: isUA ? 'Накладний платіж' : 'Cash on delivery'
+    };
+    var deliveryName = deliveryLabels[data.delivery] || data.delivery || '—';
+    var paymentName = paymentLabels[data.payment] || data.payment || '—';
+    var addressLine = data.branch || data.address || '';
+    deliveryHtml = '<div style="background:#f0faf8;padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #00ddc0">' +
+      '<h3 style="margin:0 0 10px;color:#333">' + (isUA ? 'Доставка' : 'Delivery') + '</h3>' +
+      '<p style="margin:4px 0"><b>' + (isUA ? 'Спосіб' : 'Method') + ':</b> ' + deliveryName + (addressLine ? ' — ' + addressLine : '') + '</p>' +
+      '<p style="margin:4px 0"><b>' + (isUA ? 'Оплата' : 'Payment') + ':</b> ' + paymentName + '</p>' +
+      '</div>';
+  }
+
   var requisitesHtml = '';
   if (data.payment === 'invoice' && isUA) {
+    var qrImgHtml = '';
+    var qrUrl = generatePaymentQR(orderNum, data.totalUah || 0);
+    if (qrUrl) {
+      qrImgHtml = '<div style="text-align:center;margin:12px 0">' +
+        '<p style="margin:4px 0;font-weight:bold">' + (isUA ? 'Скануйте для оплати:' : 'Scan to pay:') + '</p>' +
+        '<img src="' + qrUrl + '" width="200" height="200" alt="QR" style="border-radius:8px" /></div>';
+    }
     requisitesHtml = '<div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:16px 0">' +
       '<h3 style="margin:0 0 10px;color:#333">' + t.requisites + '</h3>' +
       '<p style="margin:4px 0"><b>' + t.recipient + ':</b> ФОП Ліпко Дмитро Олегович</p>' +
@@ -327,6 +374,7 @@ function buildOrderEmailHtml(data) {
       '<p style="margin:4px 0"><b>' + t.bank + ':</b> АТ "УНІВЕРСАЛ БАНК", МФО 322001</p>' +
       '<p style="margin:4px 0"><b>' + t.purpose + ':</b> Оплата автозапчастин, замовлення #' + orderNum + '</p>' +
       '<p style="margin:4px 0"><b>' + t.amount + ':</b> ' + (data.totalUah || 0) + ' ₴ ($' + (data.total || 0) + ' × ' + (data.usdRate || '?') + ' ₴)</p>' +
+      qrImgHtml +
       '<p style="margin:10px 0 0;color:#555;font-style:italic">' + (isUA ? 'Після зарахування грошей, вам прийде сповіщення.' : 'You will receive a notification once the payment is received.') + '</p>' +
       '</div>';
   }
@@ -338,6 +386,7 @@ function buildOrderEmailHtml(data) {
     '<h2 style="color:#333;margin:0 0 16px">' + t.order + ' #' + orderNum + '</h2>' +
     '<p>' + t.greeting + '</p>' +
     productsHtml +
+    deliveryHtml +
     requisitesHtml +
     '<p style="color:#888;font-size:13px;margin-top:20px">' + t.contact + '</p>' +
     '</div></div>';
@@ -1538,6 +1587,82 @@ function sendTelegramReply(chatId, text) {
 }
 
 // ============================================================
+// === QR-КОДИ ДЛЯ ОПЛАТИ ===
+// ============================================================
+
+function generatePaymentQR(orderNumber, amountUah) {
+  try {
+    // Формуємо рядок для QR (IBAN платіж)
+    var paymentData = "IBAN: UA543220010000026002370019520\n" +
+      "Отримувач: ФОП Ліпко Дмитро Олегович\n" +
+      "ЄДРПОУ/ІПН: 3573011735\n" +
+      "Сума: " + amountUah + " UAH\n" +
+      "Призначення: Оплата замовлення " + orderNumber;
+
+    // Генеруємо QR через quickchart.io
+    var qrApiUrl = "https://quickchart.io/qr?text=" + encodeURIComponent(paymentData) + "&size=400&format=png";
+    var qrResp = UrlFetchApp.fetch(qrApiUrl, { muteHttpExceptions: true });
+    if (qrResp.getResponseCode() !== 200) return null;
+
+    var bytes = qrResp.getBlob().getBytes();
+
+    // Зберігаємо в Supabase Storage
+    var filename = "qr-" + orderNumber + ".png";
+    var url = SUPABASE_URL + "/storage/v1/object/" + SUPABASE_BUCKET + "/qr/" + filename;
+    var uploadResp = UrlFetchApp.fetch(url, {
+      method: "PUT",
+      headers: {
+        "Authorization": "Bearer " + getSupabaseKey(),
+        "Content-Type": "image/png",
+        "x-upsert": "true"
+      },
+      payload: bytes,
+      muteHttpExceptions: true
+    });
+
+    if (uploadResp.getResponseCode() === 200) {
+      return SUPABASE_URL + "/storage/v1/object/public/" + SUPABASE_BUCKET + "/qr/" + filename;
+    }
+    return null;
+  } catch (e) {
+    writeLog("WARN", "QR generation failed: " + e.toString());
+    return null;
+  }
+}
+
+// --- Очистка старих QR (запускати вручну або по тригеру раз на тиждень) ---
+function cleanupOldQRCodes() {
+  var key = getSupabaseKey();
+  // Отримати список файлів в qr/
+  var listResp = UrlFetchApp.fetch(SUPABASE_URL + "/storage/v1/object/list/" + SUPABASE_BUCKET, {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+    payload: JSON.stringify({ prefix: "qr/", limit: 100 }),
+    muteHttpExceptions: true
+  });
+  if (listResp.getResponseCode() !== 200) return;
+  var files = JSON.parse(listResp.getContentText());
+  var now = Date.now();
+  var maxAge = 30 * 24 * 60 * 60 * 1000; // 30 днів
+  var toDelete = [];
+  for (var i = 0; i < files.length; i++) {
+    var created = new Date(files[i].created_at).getTime();
+    if (now - created > maxAge) {
+      toDelete.push("qr/" + files[i].name);
+    }
+  }
+  if (toDelete.length > 0) {
+    UrlFetchApp.fetch(SUPABASE_URL + "/storage/v1/object/" + SUPABASE_BUCKET, {
+      method: "DELETE",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      payload: JSON.stringify({ prefixes: toDelete }),
+      muteHttpExceptions: true
+    });
+    writeLog("INFO", "Cleaned up " + toDelete.length + " old QR codes");
+  }
+}
+
+// ============================================================
 // === КУРС USD/UAH — оновлення раз на годину (Time-driven trigger) ===
 // ============================================================
 
@@ -1582,6 +1707,198 @@ function updateUsdRate() {
   } else {
     writeLog("WARN", "updateUsdRate Supabase error " + code + ": " + response.getContentText());
   }
+}
+
+// ============================================================
+// === MONOBANK — ТРЕКІНГ ОПЛАТИ ===
+// ============================================================
+
+function handleMonobankWebhook(statement) {
+  if (!statement) return;
+  // amount в копійках, вхідний платіж > 0
+  var amount = statement.amount || 0;
+  if (amount <= 0) return; // вихідний платіж — ігнорувати
+
+  var amountUah = amount / 100;
+  var description = statement.description || "";
+  var comment = statement.comment || "";
+  var transactionId = statement.id || "";
+  var fullText = description + " " + comment;
+
+  writeLog("MONO", "Payment: " + amountUah + " UAH, desc: " + description + ", comment: " + comment + ", id: " + transactionId);
+
+  // Шукаємо номер замовлення в описі АБО коментарі
+  var orderMatch = fullText.match(/EE-\d{4}/i);
+  if (!orderMatch) {
+    // Немає номера замовлення — просто повідомити в Telegram
+    sendTelegramMessage("💳 *Вхідний платіж:* " + amountUah + " ₴\n📝 " + description + (comment ? "\n💬 " + comment : "") + "\n\n⚠️ Номер замовлення не знайдено");
+    return;
+  }
+
+  var orderNumber = orderMatch[0].toUpperCase();
+
+  // Знайти замовлення в Supabase
+  var SUPABASE_KEY = PropertiesService.getScriptProperties().getProperty("SUPABASE_SERVICE_KEY");
+  var orderResp = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/orders?order_number=eq." + orderNumber + "&select=*", {
+    headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY },
+    muteHttpExceptions: true
+  });
+
+  if (orderResp.getResponseCode() !== 200) {
+    writeLog("MONO", "Failed to find order " + orderNumber + " in Supabase");
+    sendTelegramMessage("💳 *Платіж:* " + amountUah + " ₴\n🔍 Замовлення " + orderNumber + " не знайдено в базі");
+    return;
+  }
+
+  var orders = JSON.parse(orderResp.getContentText());
+  if (orders.length === 0) {
+    sendTelegramMessage("💳 *Платіж:* " + amountUah + " ₴\n🔍 Замовлення " + orderNumber + " не знайдено в базі");
+    return;
+  }
+
+  var order = orders[0];
+
+  // Накопичення оплати
+  var previouslyPaid = parseFloat(order.paid_amount) || 0;
+  var totalPaid = previouslyPaid + amountUah;
+  var expectedUah = parseFloat(order.total_uah) || 0;
+
+  // Визначити статус
+  var newPaymentStatus = "partially_paid";
+  if (expectedUah > 0 && totalPaid >= expectedUah - 1) {
+    newPaymentStatus = "paid"; // допуск 1 грн на округлення
+  } else if (expectedUah === 0) {
+    newPaymentStatus = "paid"; // немає очікуваної суми — вважаємо оплаченим
+  }
+
+  // Оновити в Supabase
+  var updatePayload = {
+    payment_status: newPaymentStatus,
+    paid_amount: totalPaid,
+    mono_transaction_id: transactionId
+  };
+  if (newPaymentStatus === "paid") updatePayload.paid_at = new Date().toISOString();
+
+  var updateResp = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/orders?order_number=eq." + orderNumber, {
+    method: "PATCH",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    payload: JSON.stringify(updatePayload),
+    muteHttpExceptions: true
+  });
+
+  var updateCode = updateResp.getResponseCode();
+  if (updateCode >= 200 && updateCode < 300) {
+    writeLog("MONO", "Order " + orderNumber + " " + newPaymentStatus + " (" + totalPaid + "/" + expectedUah + " UAH)");
+    // Оновити статус в Google Sheets
+    try {
+      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Лист1");
+      if (sheet) {
+        var data = sheet.getRange(1, 2, sheet.getLastRow(), 1).getValues(); // колонка B = номер замовлення
+        for (var r = 0; r < data.length; r++) {
+          if (data[r][0] === orderNumber) {
+            var statusLabel = newPaymentStatus === "paid" ? "оплачено ✅" : "частково (" + totalPaid.toFixed(0) + "/" + expectedUah + " ₴)";
+            sheet.getRange(r + 1, 13).setValue(statusLabel); // колонка M = 13
+            break;
+          }
+        }
+      }
+    } catch(sheetErr) { writeLog("MONO", "Sheet update failed: " + sheetErr.toString()); }
+  } else {
+    writeLog("MONO", "Failed to update order " + orderNumber + ": " + updateCode);
+  }
+
+  // Telegram повідомлення адміну
+  var amountCheck = "";
+  if (newPaymentStatus === "partially_paid") {
+    var remaining = expectedUah - totalPaid;
+    amountCheck = "\n⚠️ *Часткова оплата!* Залишилось: " + remaining.toFixed(2) + " ₴";
+  } else if (expectedUah > 0 && totalPaid > expectedUah + 1) {
+    amountCheck = "\n⚠️ Переплата: " + (totalPaid - expectedUah).toFixed(2) + " ₴";
+  }
+  var statusEmoji = newPaymentStatus === "paid" ? "✅" : "⏳";
+  sendTelegramMessage(statusEmoji + " *" + (newPaymentStatus === "paid" ? "Оплата підтверджена!" : "Часткова оплата") + "*\n\n" +
+    "📦 Замовлення: *" + orderNumber + "*\n" +
+    "👤 " + (order.name || "?") + "\n" +
+    "💰 Цей платіж: " + amountUah + " ₴\n" +
+    "💵 Всього сплачено: " + totalPaid.toFixed(2) + "/" + expectedUah + " ₴" + amountCheck + "\n" +
+    "📝 " + description);
+
+  // Email клієнту (тільки при повній оплаті)
+  if (order.email && newPaymentStatus === "paid") {
+    try {
+      var isUA = order.country === "UA";
+      GmailApp.sendEmail(order.email,
+        isUA ? "Оплата замовлення " + orderNumber + " підтверджена — Electric Engines"
+             : "Payment confirmed for order " + orderNumber + " — Electric Engines",
+        "",
+        {
+          from: "electricenginescar@gmail.com",
+          name: "Electric Engines",
+          htmlBody: '<div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#333">' +
+            '<div style="background:#00ddc0;padding:20px;text-align:center;border-radius:8px 8px 0 0">' +
+            '<h1 style="margin:0;color:#fff;font-size:22px">Electric Engines</h1></div>' +
+            '<div style="padding:20px;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px">' +
+            '<h2 style="color:#333;margin:0 0 16px">' + (isUA ? "Оплата підтверджена" : "Payment confirmed") + ' ✅</h2>' +
+            '<p>' + (isUA
+              ? "Вітаємо, " + (order.name || "") + "! Оплату замовлення *" + orderNumber + "* отримано. Дякуємо!"
+              : "Hello, " + (order.name || "") + "! Payment for order " + orderNumber + " has been received. Thank you!") + '</p>' +
+            '<p style="color:#888;font-size:13px;margin-top:20px">' +
+            (isUA ? "Якщо у вас є питання — зв'яжіться з нами: +38 095 487 40 19" : "If you have any questions — contact us: +38 095 487 40 19") +
+            '</p></div></div>'
+        }
+      );
+      writeLog("MONO", "Payment confirmation email sent to " + order.email);
+    } catch (emailErr) {
+      writeLog("MONO", "Email failed: " + emailErr.toString());
+    }
+  }
+}
+
+// --- Перевірка транзакцій (запустити вручну для дебагу) ---
+function testMonoStatements() {
+  var token = PropertiesService.getScriptProperties().getProperty('MONOBANK_TOKEN');
+  var from = Math.floor(Date.now() / 1000) - 3600; // остання година
+
+  // Особиста картка (account 0)
+  var resp1 = UrlFetchApp.fetch("https://api.monobank.ua/personal/statement/0/" + from, {
+    headers: { "X-Token": token }, muteHttpExceptions: true
+  });
+  Logger.log("Personal card: " + resp1.getContentText().substring(0, 1000));
+
+  // ФОП рахунок
+  Utilities.sleep(61000); // rate limit 60 сек між запитами
+  var resp2 = UrlFetchApp.fetch("https://api.monobank.ua/personal/statement/JYam6uwPpnPhh_VjDEOGIw/" + from, {
+    headers: { "X-Token": token }, muteHttpExceptions: true
+  });
+  Logger.log("FOP account: " + resp2.getContentText().substring(0, 1000));
+}
+
+// --- Реєстрація Monobank webhook (запустити ОДИН РАЗ) ---
+function setMonobankWebhook() {
+  var token = PropertiesService.getScriptProperties().getProperty('MONOBANK_TOKEN');
+  if (!token) { Logger.log("MONOBANK_TOKEN not set!"); return; }
+  var response = UrlFetchApp.fetch("https://api.monobank.ua/personal/webhook", {
+    method: "POST",
+    headers: { "X-Token": token },
+    contentType: "application/json",
+    payload: JSON.stringify({ webHookUrl: WEBHOOK_URL }),
+    muteHttpExceptions: true
+  });
+  Logger.log("Monobank webhook: " + response.getResponseCode() + " " + response.getContentText());
+}
+
+function getMonobankInfo() {
+  var token = PropertiesService.getScriptProperties().getProperty('MONOBANK_TOKEN');
+  var response = UrlFetchApp.fetch("https://api.monobank.ua/personal/client-info", {
+    headers: { "X-Token": token },
+    muteHttpExceptions: true
+  });
+  Logger.log("Monobank info: " + response.getContentText());
 }
 
 // ============================================================
