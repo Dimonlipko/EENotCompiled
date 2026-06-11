@@ -19,7 +19,7 @@ class="img-wrapper" @click="viewMore(product.id, product)"
 v-for="image in product.images" :key="image"
 >
               <img
-:src="getImageSrc(image)" class="image" />
+v-progressive="{ src: image, width: 600, height: 400, quality: 75 }" class="image" />
             </el-carousel-item>
           </el-carousel>
         </div>
@@ -99,21 +99,6 @@ export default {
         return product.title[this.$i18n.locale] || product.title.ua || product.title.en || ''
       }
       return product.title
-    },
-
-    getImageSrc(image) {
-      if (!image) return ''
-      if (image.includes('supabase.co/storage/v1/object/public/')) {
-        return image.replace('/object/public/', '/render/image/public/') + '?width=600&height=400&resize=contain&quality=75'
-      }
-      if (image.startsWith('http') || image.startsWith('/')) {
-        return image
-      }
-      try {
-        return require(`@/assets/img/${image}`)
-      } catch (e) {
-        return ''
-      }
     },
 
     viewMore: function(id, product) {

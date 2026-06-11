@@ -7,6 +7,9 @@ import router from './router'
 import store from './store'
 import './plugins/element.js'
 import 'normalize.css'
+import progressive from './directives/progressive'
+
+Vue.directive('progressive', progressive)
 
 Vue.config.productionTip = false
 

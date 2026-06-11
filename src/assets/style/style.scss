@@ -283,3 +283,16 @@ a {
 		color: #00ddc0;
 	}
 }
+
+/* Прогресивне завантаження зображень (v-progressive):
+   pi-blur — стиснений плейсхолдер, pi-sharp — повна якість після догрузки. */
+img.pi-blur {
+	filter: blur(3px);
+	opacity: 0.9;
+	transition: filter 0.5s ease, opacity 0.5s ease;
+}
+img.pi-sharp {
+	filter: blur(0);
+	opacity: 1;
+	transition: filter 0.5s ease, opacity 0.5s ease;
+}

@@ -35,7 +35,7 @@
               :name="image"
             >
               <img
-                :src="getImageSrc(image)"
+                v-progressive="{ src: image, width: 900, quality: 80 }"
                 class="image"
                 style="cursor: pointer"
                 @click="openLightbox(image)"
@@ -50,7 +50,7 @@
           <div v-for="image in product.images"
 class="image" :key="image">
             <img
-              :src="getImageSrc(image)"
+              v-progressive="{ src: image, width: 120, quality: 60 }"
               @click="setActiveItem(image)"
             >
           </div>
